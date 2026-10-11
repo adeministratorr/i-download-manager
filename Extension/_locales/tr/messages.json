@@ -11,6 +11,9 @@
   "menuPageVideo": {
     "message": "Bu sayfadaki videoyu indir (yt-dlp)"
   },
+  "menuPagePlaylist": {
+    "message": "Bu sayfadaki oynatma listesini indir (tüm videolar)"
+  },
   "notifSentTitle": {
     "message": "İndirme uygulamaya gönderildi"
   },

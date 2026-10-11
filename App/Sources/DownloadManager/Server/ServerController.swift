@@ -177,6 +177,12 @@ final class ServerController: ObservableObject {
                     r.hashAlgorithm = algo
                 }
             }
+            let wantPlaylist = (obj["playlist"] as? Bool) == true || (obj["kind"] as? String) == "playlist"
+            if wantPlaylist, r.kind == .video {
+                store.addPlaylist(url: url, referer: r.referer, userAgent: r.userAgent,
+                                  cookies: r.cookies, headers: r.extraHeaders)
+                return .json(["ok": true, "playlist": true])
+            }
             let item = store.add(r)
             return .json(["ok": true, "id": item.id.uuidString])
 

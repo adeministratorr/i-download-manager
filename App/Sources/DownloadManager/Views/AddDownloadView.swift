@@ -11,6 +11,7 @@ struct AddDownloadView: View {
     @State private var expectedHash = ""
     @State private var hashAlgorithm: HashAlgorithm = .sha256
     @State private var hashError: String? = nil
+    @State private var asPlaylist = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -21,6 +22,14 @@ struct AddDownloadView: View {
                 .frame(height: 110)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
             Toggle("Download video from page (yt-dlp)", isOn: $asVideo)
+            if asVideo {
+                Toggle("Playlist: list all videos and download each (same quality)", isOn: $asPlaylist)
+                    .font(.callout)
+                if asPlaylist {
+                    Text("Each video downloads separately with your Video settings (MP4/M4A, no re-encode). Files go into a playlist subfolder.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
             if !asVideo {
                 Stepper(value: $segments, in: 0...16) {
                     if segments == 0 {
@@ -59,6 +68,11 @@ struct AddDownloadView: View {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Download") {
+                    if asVideo, asPlaylist {
+                        store.addURLs(text, kind: .video, asPlaylist: true)
+                        dismiss()
+                        return
+                    }
                     let trimmed = expectedHash.trimmingCharacters(in: .whitespacesAndNewlines)
                     if trimmed.isEmpty {
                         store.addURLs(text, kind: asVideo ? .video : .file, segments: segments == 0 ? nil : segments)

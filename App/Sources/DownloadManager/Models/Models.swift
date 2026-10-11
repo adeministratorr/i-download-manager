@@ -55,6 +55,11 @@ struct DownloadItem: Identifiable, Codable, Equatable {
     var hashAlgorithm: String? = nil    // HashAlgorithm.rawValue
     var computedHash: String? = nil
     var hashVerified: Bool? = nil       // nil = kontrol edilmedi
+    // Playlist üyeliği: playlist genişletilince doldurulur.
+    var playlistId: String? = nil
+    var playlistTitle: String? = nil
+    var playlistIndex: Int? = nil
+    var playlistCount: Int? = nil
 
     // Kalıcı olmayan alanlar
     var speed: Double = 0
@@ -65,7 +70,8 @@ struct DownloadItem: Identifiable, Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, url, fileName, directory, kind, state, totalBytes, receivedBytes, supportsRanges,
              segments, headers, cookieFile, errorMessage, createdAt, completedAt, finalPath, requestedSegments,
-             expectedHash, hashAlgorithm, computedHash, hashVerified
+             expectedHash, hashAlgorithm, computedHash, hashVerified,
+             playlistId, playlistTitle, playlistIndex, playlistCount
     }
 
     init(id: UUID = UUID(), url: URL, fileName: String, directory: URL, kind: DownloadKind = .file,
@@ -74,7 +80,9 @@ struct DownloadItem: Identifiable, Codable, Equatable {
          cookieFile: String? = nil, errorMessage: String? = nil, createdAt: Date = Date(),
          completedAt: Date? = nil, finalPath: String? = nil, requestedSegments: Int = 0,
          expectedHash: String? = nil, hashAlgorithm: String? = nil,
-         computedHash: String? = nil, hashVerified: Bool? = nil) {
+         computedHash: String? = nil, hashVerified: Bool? = nil,
+         playlistId: String? = nil, playlistTitle: String? = nil,
+         playlistIndex: Int? = nil, playlistCount: Int? = nil) {
         self.id = id
         self.url = url
         self.fileName = fileName
@@ -96,6 +104,10 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         self.hashAlgorithm = hashAlgorithm
         self.computedHash = computedHash
         self.hashVerified = hashVerified
+        self.playlistId = playlistId
+        self.playlistTitle = playlistTitle
+        self.playlistIndex = playlistIndex
+        self.playlistCount = playlistCount
     }
 
     init(from decoder: Decoder) throws {
@@ -121,6 +133,10 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         hashAlgorithm = try c.decodeIfPresent(String.self, forKey: .hashAlgorithm)
         computedHash = try c.decodeIfPresent(String.self, forKey: .computedHash)
         hashVerified = try c.decodeIfPresent(Bool.self, forKey: .hashVerified)
+        playlistId = try c.decodeIfPresent(String.self, forKey: .playlistId)
+        playlistTitle = try c.decodeIfPresent(String.self, forKey: .playlistTitle)
+        playlistIndex = try c.decodeIfPresent(Int.self, forKey: .playlistIndex)
+        playlistCount = try c.decodeIfPresent(Int.self, forKey: .playlistCount)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -146,6 +162,10 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         try c.encodeIfPresent(hashAlgorithm, forKey: .hashAlgorithm)
         try c.encodeIfPresent(computedHash, forKey: .computedHash)
         try c.encodeIfPresent(hashVerified, forKey: .hashVerified)
+        try c.encodeIfPresent(playlistId, forKey: .playlistId)
+        try c.encodeIfPresent(playlistTitle, forKey: .playlistTitle)
+        try c.encodeIfPresent(playlistIndex, forKey: .playlistIndex)
+        try c.encodeIfPresent(playlistCount, forKey: .playlistCount)
     }
 
     var destinationURL: URL { directory.appendingPathComponent(fileName) }

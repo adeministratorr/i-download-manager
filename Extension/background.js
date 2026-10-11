@@ -137,12 +137,13 @@ function notify(title, message) {
   } catch {}
 }
 
-async function sendToApp({ url, filename, referer, kind }) {
+async function sendToApp({ url, filename, referer, kind, playlist }) {
   const settings = await getSettings();
   const ck = await cookiesFor(url);
   const payload = {
     url, filename: filename || '', referer: referer || '', kind: kind || 'file',
     userAgent: navigator.userAgent, cookieHeader: ck.header, cookies: ck.list,
+    playlist: !!playlist,
   };
   const post = () => fetch(base(settings) + '/download', {
     method: 'POST', headers: { 'Content-Type': 'application/json', ...BRIDGE_HEADERS }, body: JSON.stringify(payload),
@@ -382,6 +383,7 @@ function createMenus() {
     try {
       menus.create({ id: 'dm-link', title: t('menuDownloadLink'), contexts: ['link', 'video', 'audio', 'image'] });
       menus.create({ id: 'dm-page-video', title: t('menuPageVideo'), contexts: ['page', 'video', 'frame', 'action'] });
+      menus.create({ id: 'dm-page-playlist', title: t('menuPagePlaylist') || 'Download playlist (all videos)', contexts: ['page', 'frame', 'action'] });
     } catch {}
   };
   // Chrome/Safari take a callback; Firefox's browser.menus returns a promise.
@@ -399,6 +401,9 @@ menus?.onClicked.addListener((info, tab) => {
   } else if (info.menuItemId === 'dm-page-video') {
     const url = info.pageUrl || tab?.url;
     if (url) sendToApp({ url, referer: url, kind: 'video' });
+  } else if (info.menuItemId === 'dm-page-playlist') {
+    const url = info.pageUrl || tab?.url;
+    if (url) sendToApp({ url, referer: url, kind: 'video', playlist: true });
   }
 });
 

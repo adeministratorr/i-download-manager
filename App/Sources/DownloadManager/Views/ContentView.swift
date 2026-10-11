@@ -149,7 +149,11 @@ struct ContentView: View {
                         .frame(width: 22)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.fileName).lineLimit(1).truncationMode(.middle)
-                        Text(item.category.label).font(.caption).foregroundStyle(.secondary)
+                        if let pt = item.playlistTitle, let idx = item.playlistIndex, let cnt = item.playlistCount {
+                            Text("\(pt) · \(idx)/\(cnt)").font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        } else {
+                            Text(item.category.label).font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
                 .padding(.vertical, 3)

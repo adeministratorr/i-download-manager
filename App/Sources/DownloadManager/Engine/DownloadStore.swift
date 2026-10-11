@@ -16,6 +16,10 @@ struct NewDownloadRequest {
     var segments: Int? = nil
     var expectedHash: String? = nil
     var hashAlgorithm: HashAlgorithm? = nil
+    var playlistId: String? = nil
+    var playlistTitle: String? = nil
+    var playlistIndex: Int? = nil
+    var playlistCount: Int? = nil
 
     init(url: URL) { self.url = url }
 }
@@ -111,6 +115,10 @@ final class DownloadStore: ObservableObject {
                                 kind: req.kind)
         item.headers = headers
         item.requestedSegments = req.segments ?? 0
+        item.playlistId = req.playlistId
+        item.playlistTitle = req.playlistTitle
+        item.playlistIndex = req.playlistIndex
+        item.playlistCount = req.playlistCount
         if let raw = req.expectedHash {
             let norm = HashAlgorithm.normalize(raw)
             if !norm.isEmpty, HashAlgorithm.isHex(norm) {
@@ -130,16 +138,120 @@ final class DownloadStore: ObservableObject {
         return item
     }
 
-    func addURLs(_ text: String, kind: DownloadKind, segments: Int? = nil, expectedHash: String? = nil, hashAlgorithm: HashAlgorithm? = nil) {
+    func addURLs(_ text: String, kind: DownloadKind, segments: Int? = nil, expectedHash: String? = nil, hashAlgorithm: HashAlgorithm? = nil, asPlaylist: Bool = false) {
         for line in text.split(whereSeparator: \.isNewline) {
             let s = line.trimmingCharacters(in: .whitespaces)
             guard let url = URL(string: s), let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme) else { continue }
+            if asPlaylist, kind == .video {
+                addPlaylist(url: url, referer: nil, userAgent: nil, cookies: nil)
+            } else {
+                var r = NewDownloadRequest(url: url)
+                r.kind = kind
+                r.segments = segments
+                r.expectedHash = expectedHash
+                r.hashAlgorithm = hashAlgorithm
+                add(r)
+            }
+        }
+    }
+
+    /// Playlist URL'sini yt-dlp ile listeleyip her videoyu ayrı kuyruk öğesi yapar.
+    /// Kalite kaybı yok: her çocuk `settings.ytdlpFormatArguments` ile tek tek iner.
+    /// Liste değilse (tek video) normal tekli indirmeye düşer.
+    func addPlaylist(url: URL, referer: String?, userAgent: String?, cookies: [[String: Any]]?,
+                     headers extra: [String: String] = [:]) {
+        guard let exe = VideoDownloader.locateYtDlp(custom: settings.ytdlpPath) else {
             var r = NewDownloadRequest(url: url)
-            r.kind = kind
-            r.segments = segments
-            r.expectedHash = expectedHash
-            r.hashAlgorithm = hashAlgorithm
-            add(r)
+            r.kind = .video
+            r.referer = referer
+            r.userAgent = userAgent
+            r.cookies = cookies
+            r.extraHeaders = extra
+            let item = add(r)
+            update(item.id) {
+                $0.state = .failed
+                $0.errorMessage = String(localized: "yt-dlp not found. Use “Install yt-dlp” in Settings ▸ Video.")
+            }
+            pumpQueue()
+            return
+        }
+        var headers = extra
+        if let r = referer, !r.isEmpty { headers["Referer"] = r }
+        headers["User-Agent"] = (userAgent?.isEmpty == false ? userAgent! : Self.defaultUserAgent)
+        // Geçici "listeleniyor" öğesi: kullanıcıya ilerleme gösterir, bitince kaldırılır.
+        var probeReq = NewDownloadRequest(url: url)
+        probeReq.kind = .video
+        probeReq.referer = referer
+        probeReq.userAgent = userAgent
+        probeReq.cookies = cookies
+        probeReq.extraHeaders = extra
+        let probe = add(probeReq)
+        update(probe.id) {
+            $0.state = .downloading
+            $0.stage = String(localized: "Reading playlist…")
+            $0.fileName = url.host ?? "playlist"
+        }
+        // Cookie dosyasını listelemede kullan + çocuklara aynen aktar.
+        let cookiePath: String? = {
+            guard let cookies, !cookies.isEmpty else { return nil }
+            return writeCookieFile(cookies, id: probe.id)
+        }()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let fetched: Result<VideoDownloader.PlaylistInfo, Error> = {
+                do { return .success(try VideoDownloader.fetchPlaylistEntries(executable: exe, url: url, headers: headers, cookieFile: cookiePath)) }
+                catch { return .failure(error) }
+            }()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                // Prob öğesini kaldır (cookie dosyasıyla birlikte).
+                self.remove(probe.id)
+                switch fetched {
+                case .failure(let e):
+                    // Liste okunamazsa tek video olarak dene (kullanıcı yine izler).
+                    var r = NewDownloadRequest(url: url)
+                    r.kind = .video
+                    r.referer = referer
+                    r.userAgent = userAgent
+                    r.cookies = cookies
+                    r.extraHeaders = extra
+                    let item = self.add(r)
+                    self.update(item.id) {
+                        $0.errorMessage = nil
+                        $0.log = String(localized: "Playlist could not be listed (\(e.localizedDescription)); trying as a single video…") + "\n"
+                    }
+                case .success(let info):
+                    guard !info.entries.isEmpty else {
+                        var r = NewDownloadRequest(url: url)
+                        r.kind = .video
+                        r.referer = referer
+                        r.userAgent = userAgent
+                        r.cookies = cookies
+                        r.extraHeaders = extra
+                        self.add(r)
+                        return
+                    }
+                    let pid = info.id ?? url.absoluteString
+                    let ptitle = info.title ?? url.host ?? "playlist"
+                    let count = info.entries.count
+                    // Sıralı ekle: en son eklenen en üstte görünür; ters sırada ekle.
+                    for e in info.entries.reversed() {
+                        var r = NewDownloadRequest(url: e.url)
+                        r.kind = .video
+                        r.referer = referer ?? url.absoluteString
+                        r.userAgent = userAgent
+                        r.cookies = cookies
+                        r.extraHeaders = extra
+                        r.playlistId = pid
+                        r.playlistTitle = ptitle
+                        r.playlistIndex = e.index
+                        r.playlistCount = count
+                        if let t = e.title, !t.isEmpty {
+                            r.fileName = String(format: "%02d - %@", e.index, t)
+                        }
+                        self.add(r)
+                    }
+                }
+            }
         }
     }
 
@@ -289,7 +401,12 @@ final class DownloadStore: ObservableObject {
             $0.stage = String(localized: "Fetching video information…")
             if useCookies { $0.log = "" }   // keep the failed attempt's output visible above the retry
         }
-        let outDir = destinationDirectory(for: item)
+        // Playlist üyeleri aynı kalitede iner (settings.ytdlpFormatArguments),
+        // sadece playlist adında alt klasöre yazılır.
+        var outDir = destinationDirectory(for: item)
+        if let pt = item.playlistTitle, !pt.isEmpty {
+            outDir = outDir.appendingPathComponent(Self.sanitize(pt), isDirectory: true)
+        }
         try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
         let proc = VideoDownloader.run(
             executable: exe, url: item.url, outputDir: outDir, formatArgs: settings.ytdlpFormatArguments,

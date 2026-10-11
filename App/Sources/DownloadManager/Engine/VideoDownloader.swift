@@ -63,6 +63,112 @@ enum VideoDownloader {
         message.localizedCaseInsensitiveContains("page needs to be reloaded")
     }
 
+    // MARK: - Playlist
+
+    struct PlaylistEntry {
+        var url: URL
+        var title: String?
+        var index: Int
+    }
+
+    struct PlaylistInfo {
+        var id: String?
+        var title: String?
+        var entries: [PlaylistEntry]
+    }
+
+    static let maxPlaylistItems = 200
+
+    /// Kaba playlist sezgisi (UI'da toggle'ı önermek için). Kesin karar
+    /// `fetchPlaylistEntries` ile verilir (tek video da playlist URL'si olabilir).
+    static func looksLikePlaylist(_ url: URL) -> Bool {
+        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
+        let host = url.host?.lowercased() ?? ""
+        let path = url.path.lowercased()
+        let query = (comps.queryItems ?? []).map { $0.name.lowercased() }
+        if query.contains("list") { return true }
+        if host.contains("youtube.com") && path.contains("/playlist") { return true }
+        if path.contains("/playlist") || path.contains("/sets/") || path.contains("/collection") { return true }
+        return false
+    }
+
+    /// `yt-dlp --flat-playlist -J` ile videoları tek tek indirmek için listeler.
+    /// Tek video dönerse 1 elemanlı liste verir; liste değilse boş dizi + başlık döner.
+    static func fetchPlaylistEntries(executable: String,
+                                     url: URL,
+                                     headers: [String: String] = [:],
+                                     cookieFile: String? = nil,
+                                     timeout: TimeInterval = 60) throws -> PlaylistInfo {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: executable)
+        var args = ["--flat-playlist", "--dump-single-json", "--no-colors", "--no-warnings",
+                    "--socket-timeout", "15"]
+        if let ua = headers["User-Agent"], !ua.isEmpty { args += ["--user-agent", ua] }
+        if let ref = headers["Referer"], !ref.isEmpty { args += ["--referer", ref] }
+        if let cf = cookieFile, FileManager.default.fileExists(atPath: cf) { args += ["--cookies", cf] }
+        if let deno = locateDeno() { args += ["--js-runtimes", "deno:" + deno] }
+        args.append(url.absoluteString)
+        p.arguments = args
+        p.environment = environment()
+        let out = Pipe()
+        let err = Pipe()
+        p.standardOutput = out
+        p.standardError = err
+        try p.run()
+        // Basit timeout: süre dolarsa öldür.
+        let killer = DispatchWorkItem { if p.isRunning { p.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: killer)
+        p.waitUntilExit()
+        killer.cancel()
+        guard p.terminationStatus == 0 else {
+            let edata = err.fileHandleForReading.readDataToEndOfFile()
+            let msg = String(data: edata, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            throw DownloadFailure(message: msg?.isEmpty == false ? msg! : String(localized: "yt-dlp could not read the playlist (exit \(p.terminationStatus))"))
+        }
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw DownloadFailure(message: String(localized: "Playlist could not be parsed."))
+        }
+        let type = (json["_type"] as? String) ?? "video"
+        let pid = (json["id"] as? String) ?? (json["playlist_id"] as? String)
+        let ptitle = (json["title"] as? String) ?? (json["playlist_title"] as? String)
+        if type != "playlist", json["entries"] == nil {
+            // Tek video: çağıran tekli indirmeye düşsün.
+            return PlaylistInfo(id: nil, title: nil, entries: [])
+        }
+        guard let rawEntries = json["entries"] as? [[String: Any]], !rawEntries.isEmpty else {
+            throw DownloadFailure(message: String(localized: "No videos found in this playlist."))
+        }
+        var entries: [PlaylistEntry] = []
+        for (i, e) in rawEntries.prefix(maxPlaylistItems).enumerated() {
+            let title = (e["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let page = e["webpage_url"] as? String, let u = URL(string: page),
+               let scheme = u.scheme?.lowercased(), ["http", "https"].contains(scheme) {
+                entries.append(PlaylistEntry(url: u, title: title?.isEmpty == true ? nil : title, index: i + 1))
+                continue
+            }
+            if let uStr = e["url"] as? String {
+                if let u = URL(string: uStr), let scheme = u.scheme?.lowercased(),
+                   ["http", "https"].contains(scheme) {
+                    entries.append(PlaylistEntry(url: u, title: title?.isEmpty == true ? nil : title, index: i + 1))
+                    continue
+                }
+                // YouTube flat-playlist bazen sadece video id verir.
+                if let vid = e["id"] as? String, !vid.isEmpty,
+                   isYouTube(url) || uStr == vid {
+                    if let u = URL(string: "https://www.youtube.com/watch?v=\(vid)") {
+                        entries.append(PlaylistEntry(url: u, title: title?.isEmpty == true ? nil : title, index: i + 1))
+                        continue
+                    }
+                }
+            }
+        }
+        guard !entries.isEmpty else {
+            throw DownloadFailure(message: String(localized: "No downloadable videos found in this playlist."))
+        }
+        return PlaylistInfo(id: pid, title: ptitle, entries: entries)
+    }
+
     static func environment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
         let extra = [helpersDirectory.path, "/opt/homebrew/bin", "/usr/local/bin", NSHomeDirectory() + "/.local/bin"]

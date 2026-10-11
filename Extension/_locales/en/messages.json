@@ -11,6 +11,9 @@
   "menuPageVideo": {
     "message": "Download video from this page (yt-dlp)"
   },
+  "menuPagePlaylist": {
+    "message": "Download playlist from this page (all videos)"
+  },
   "notifSentTitle": {
     "message": "Download sent to the app"
   },
