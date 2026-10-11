@@ -81,6 +81,9 @@
   "popupMinSize": {
     "message": "Yalnızca şu boyuttan büyükleri yakala (MB, 0 = hepsi)"
   },
+  "popupToken": {
+    "message": "Köprü anahtarı (uygulamada Ayarlar → Browser)"
+  },
   "popupDownload": {
     "message": "İndir"
   },

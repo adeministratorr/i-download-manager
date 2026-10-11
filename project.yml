@@ -42,6 +42,9 @@ targets:
         # Menu bar app: no Dock icon at launch; AppPresence switches to .regular while a window is open.
         LSUIElement: true
         NSHighResolutionCapable: true
+        # Gerekli: indirme yöneticisi kullanıcının verdiği keyfi http:// URL'leri de
+        # indirmeli. Birinci-taraf uçlar (GitHub API/releases, araç indirmeleri)
+        # kodda sabit https URL'lerdir; güvenlik duyarlı hiçbir akış düz metin kullanmaz.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         NSHumanReadableCopyright: MIT License — Mesut Çevik

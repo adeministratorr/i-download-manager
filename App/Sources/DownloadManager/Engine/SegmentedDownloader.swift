@@ -6,6 +6,8 @@ struct ProbeResult {
     var suggestedFileName: String?
     var contentType: String?
     var finalURL: URL?
+    var etag: String?
+    var lastModified: String?
 }
 
 /// Tek bir dosyayı N paralel HTTP Range isteğiyle indirir.
@@ -20,6 +22,8 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
         var minSegmentSize: Int64 = 512 * 1024
         var resumeSegments: [SegmentInfo] = []
         var resumeTotal: Int64 = -1
+        var resumeETag: String? = nil
+        var resumeLastModified: String? = nil
     }
 
     private enum Mode { case idle, probing, multi, single }
@@ -65,6 +69,9 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
     private var stopped = false
     private var finished = false
     private var fallbackDone = false
+    private var freshRetried = false
+    private var sendIfRange = false
+    private var pendingResume: (segments: [SegmentInfo], total: Int64, etag: String?)? = nil
     private var lastReport = Date.distantPast
 
     init(configuration: Configuration) {
@@ -77,15 +84,24 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
 
     func start() {
         delegateQueue.addOperation { [self] in
-            let canResume = config.resumeTotal > 0
-                && !config.resumeSegments.isEmpty
+            // Bozuk resume durumunu ele: sınır dışı segmentler sessizce bozuk dosya üretirdi.
+            let boundsOK = !config.resumeSegments.isEmpty
+                && config.resumeSegments.allSatisfy {
+                    $0.start >= 0 && $0.start <= $0.end && $0.end < config.resumeTotal
+                    && $0.received >= 0 && $0.received <= $0.length
+                }
+            let canResume = config.resumeTotal > 0 && boundsOK
                 && FileManager.default.fileExists(atPath: config.partURL.path)
             if canResume {
-                segments = config.resumeSegments
-                guard openFile(create: false, preallocate: nil) else { return }
-                mode = .multi
-                launchPendingSegments()
+                // Boyut/ETag'i probe ile yeniden doğrula; dosya değiştiyse taze başlat.
+                pendingResume = (segments: config.resumeSegments, total: config.resumeTotal,
+                                 etag: config.resumeETag)
+                sendIfRange = (config.resumeETag ?? config.resumeLastModified) != nil
+                probe()
             } else {
+                if !config.resumeSegments.isEmpty || config.resumeTotal > 0 {
+                    try? FileManager.default.removeItem(at: config.partURL)
+                }
                 probe()
             }
         }
@@ -111,10 +127,21 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
     private static let credentialHeaders: Set<String> = ["cookie", "authorization", "proxy-authorization"]
 
     /// Credentials (Cookie/Authorization) are only sent to the host the download was requested for,
-    /// never to a host reached through a redirect.
+    /// never to a host reached through a redirect. Port da dahildir.
     private func sameOrigin(_ url: URL?) -> Bool {
         guard let url else { return false }
-        return url.host?.lowercased() == config.url.host?.lowercased() && url.scheme?.lowercased() == config.url.scheme?.lowercased()
+        return url.host?.lowercased() == config.url.host?.lowercased()
+            && url.scheme?.lowercased() == config.url.scheme?.lowercased()
+            && Self.defaultPort(url.scheme, explicit: url.port) == Self.defaultPort(config.url.scheme, explicit: config.url.port)
+    }
+
+    private static func defaultPort(_ scheme: String?, explicit: Int?) -> Int? {
+        if let explicit { return explicit }
+        switch scheme?.lowercased() {
+        case "http": return 80
+        case "https": return 443
+        default: return nil
+        }
     }
 
     private func makeRequest(range: String?) -> URLRequest {
@@ -127,6 +154,11 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
         }
         r.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
         if let range { r.setValue(range, forHTTPHeaderField: "Range") }
+        // Resume ederken If-Range gönder: sunucudaki dosya değiştiyse sunucu 200
+        // döner, biz de fallbackToSingle ile taze başlarız (sessiz bozulma olmaz).
+        if range != nil, sendIfRange, let tag = config.resumeETag ?? config.resumeLastModified, !tag.isEmpty {
+            r.setValue(tag, forHTTPHeaderField: "If-Range")
+        }
         return r
     }
 
@@ -164,8 +196,31 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
         let ctype = http.value(forHTTPHeaderField: "Content-Type")?
             .components(separatedBy: ";").first?
             .trimmingCharacters(in: .whitespaces)
+        let freshETag = http.value(forHTTPHeaderField: "ETag")
+        let freshLM = http.value(forHTTPHeaderField: "Last-Modified")
         onProbe?(ProbeResult(totalBytes: total, supportsRanges: ranges,
-                             suggestedFileName: name, contentType: ctype, finalURL: http.url))
+                             suggestedFileName: name, contentType: ctype, finalURL: http.url,
+                             etag: freshETag, lastModified: freshLM))
+
+        // Resume doğrulaması: boyut veya ETag tutmuyorsa artığı sil, bu probe ile taze devam et.
+        if let pr = pendingResume {
+            pendingResume = nil
+            let etagMatch: Bool = {
+                guard let saved = pr.etag, !saved.isEmpty,
+                      let fresh = freshETag, !fresh.isEmpty else { return true }
+                return saved == fresh
+            }()
+            if total > 0, total == pr.total, etagMatch {
+                segments = pr.segments
+                guard openFile(create: false, preallocate: nil) else { return }
+                mode = .multi
+                launchPendingSegments()
+                return
+            }
+            try? FileManager.default.removeItem(at: config.partURL)
+            segments = []
+            sendIfRange = false
+        }
 
         let count = ranges ? max(1, min(config.segmentCount, Int(total / config.minSegmentSize))) : 1
         if ranges && count > 1 {
@@ -194,10 +249,17 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
         let fm = FileManager.default
         do {
             try fm.createDirectory(at: config.partURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            // `.part` bir symlink ise takip etmeden sil: indirme dizinine önceden
+            // symlink koyan yerel bir aktör keyfi dosyayı ezdiremesin.
+            if fm.fileExists(atPath: config.partURL.path),
+               (try? fm.destinationOfSymbolicLink(atPath: config.partURL.path)) != nil {
+                try fm.removeItem(at: config.partURL)
+            }
             if create || !fm.fileExists(atPath: config.partURL.path) {
                 guard fm.createFile(atPath: config.partURL.path, contents: nil) else {
                     throw DownloadFailure(message: String(localized: "Could not create file: \(config.partURL.path)"))
                 }
+                try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: config.partURL.path)
             }
             let fh = try FileHandle(forWritingTo: config.partURL)
             if let preallocate, preallocate > 0 { try fh.truncate(atOffset: UInt64(preallocate)) }
@@ -270,6 +332,7 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
     private func fallbackToSingle() {
         guard !fallbackDone else { return }
         fallbackDone = true
+        sendIfRange = false
         let old = segmentTasks
         segmentTasks = [:]
         old.values.forEach { $0.task.cancel() }
@@ -330,6 +393,18 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
 
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        // SSRF koruması: engelli host'a yönlendirmeyi izleme.
+        if let u = request.url, NetGuard.isBlockedDownloadURL(u) {
+            completionHandler(nil)
+            fail(DownloadFailure(message: String(localized: "Blocked redirect target")))
+            return
+        }
+        // https→http kırılmayı engelle (kimlik bilgisi + içerik düz metne düşmesin).
+        if requestURL.scheme?.lowercased() == "https", request.url?.scheme?.lowercased() == "http" {
+            completionHandler(nil)
+            fail(DownloadFailure(message: String(localized: "Refused insecure redirect (https → http)")))
+            return
+        }
         var req = request
         if !sameOrigin(req.url) {
             for h in Self.credentialHeaders { req.setValue(nil, forHTTPHeaderField: h) }
@@ -364,6 +439,19 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
                 completionHandler(.cancel)
                 segmentTasks[dataTask.taskIdentifier] = nil
                 throttle(segment: entry.index, status: http.statusCode)
+            case 404, 416 where !config.resumeSegments.isEmpty && !freshRetried:
+                // Bayat resume (sunucuda dosya değişti/küçüldü): artığı silip bir kez taze dene.
+                // Eskiden bu durum kalıcı fail döngüsüne girerdi.
+                completionHandler(.cancel)
+                freshRetried = true
+                sendIfRange = false
+                for (_, e) in segmentTasks { e.task.cancel() }
+                segmentTasks = [:]
+                retries = [:]
+                pending = []
+                try? FileManager.default.removeItem(at: config.partURL)
+                segments = []
+                probe()
             default:
                 completionHandler(.cancel)
                 fail(HTTPStatusError(status: http.statusCode))

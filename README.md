@@ -142,11 +142,11 @@ project.yml                          xcodegen project spec
 | Endpoint | Description |
 |---|---|
 | `GET /ping` | version, yt-dlp availability, active download count |
-| `POST /download` | `{url, filename?, referer?, userAgent?, cookieHeader?, cookies?[], kind: "file"\|"video", segments?}` |
+| `POST /download` | `{url, filename?, referer?, userAgent?, cookieHeader?, cookies?[], kind: "file"\|"video", segments?, expectedHash?, hashAlgorithm?, playlist?}` |
 | `GET /downloads` | status of the last 50 downloads |
 | `POST /action` | `{id, action: "pause"\|"resume"\|"cancel"\|"remove"}` |
 
-The bridge only answers requests whose `Origin` is a browser-extension origin (`chrome-extension://`, `safari-web-extension://`, `moz-extension://`) and whose `Host` is the loopback address; requests from ordinary web pages (including `Origin: null`) are rejected, and CORS headers are only sent to extension origins.
+Every bridge request (except the CORS preflight) must carry `X-MCDM-Token` whose value is shown in the app under *Settings ▸ Browser ▸ Bridge token* and pasted once into each extension's settings; requests without the token are rejected, even from this Mac. The bridge only answers requests whose `Origin` is a browser-extension origin (`chrome-extension://`, `safari-web-extension://`, `moz-extension://`) and whose `Host` is the loopback address; requests from ordinary web pages (including `Origin: null`) are rejected, and CORS headers are only sent to extension origins. Loopback, link-local (`169.254.x.x`, i.e. cloud metadata) and userinfo URLs are refused as download targets, `Cookie`/`Authorization`/`Range`/`Host` cannot be injected via `headers`, and only `http(s)` URLs are accepted.
 
 ## Contributing
 

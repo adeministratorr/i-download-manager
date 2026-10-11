@@ -25,7 +25,11 @@ final class ServerController: ObservableObject {
         if let q = req.path.split(separator: "?", maxSplits: 1).last, req.path.contains("?") {
             for pair in q.split(separator: "&") {
                 let kv = pair.split(separator: "=", maxSplits: 1)
-                if kv.count == 2, kv[0] == "browser" { browser = String(kv[1]).lowercased() }
+                // Yalnızca bilinen değerler kabul edilir; rastgele sorgu anahtarla UI kirletilemez.
+                if kv.count == 2, kv[0] == "browser",
+                   ["safari", "chrome", "brave", "edge", "firefox", "other"].contains(String(kv[1]).lowercased()) {
+                    browser = String(kv[1]).lowercased()
+                }
             }
         }
         extensionConnections[browser] = Date()
@@ -113,6 +117,15 @@ final class ServerController: ObservableObject {
         return origin == nil && hasHeader
     }
 
+    /// Gizli köprü anahtarı. Origin/Host kontrolleri tarayıcıya karşı çalışır;
+    /// token, makinedeki rastgele bir yerel prosesin/eklentinin köprüyü sürmesini engeller.
+    /// Anahtar Settings ▸ Browser'da gösterilir, eklenti ayarlarına yapıştırılır.
+    private func tokenValid(_ req: HTTPRequest) -> Bool {
+        guard !settings.bridgeToken.isEmpty else { return false }
+        guard let got = req.headers["x-mcdm-token"], !got.isEmpty else { return false }
+        return got == settings.bridgeToken
+    }
+
     private func hostAllowed(_ host: String?) -> Bool {
         guard let host = host?.lowercased() else { return false }
         let port = UInt16(clamping: max(1024, min(65535, settings.serverPort)))
@@ -120,10 +133,17 @@ final class ServerController: ObservableObject {
     }
 
     private func handle(_ req: HTTPRequest) -> HTTPResponse {
-        guard Self.extensionRequest(req), hostAllowed(req.headers["host"]) else {
+        // Preflight token taşımaz (taşıyamaz); sadece extension origin + loopback aranır.
+        // Asıl istek token ile gelir ve aşağıda doğrulanır.
+        if req.method == "OPTIONS" {
+            guard Self.extensionRequest(req), hostAllowed(req.headers["host"]) else {
+                return .json(["ok": false, "error": "forbidden"], status: 403)
+            }
+            return .json(["ok": true])
+        }
+        guard Self.extensionRequest(req), tokenValid(req), hostAllowed(req.headers["host"]) else {
             return .json(["ok": false, "error": "forbidden"], status: 403)
         }
-        if req.method == "OPTIONS" { return .json(["ok": true]) }
         noteConnection(req)
         let path = req.path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? req.path
 
@@ -161,6 +181,10 @@ final class ServerController: ObservableObject {
                   let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme) else {
                 return .json(["ok": false, "error": "invalid url"], status: 400)
             }
+            // SSRF: loopback/link-local/bulut metadata hedefleri köprüden indirilemez.
+            guard !NetGuard.isBlockedDownloadURL(url) else {
+                return .json(["ok": false, "error": "blocked host"], status: 403)
+            }
             var r = NewDownloadRequest(url: url)
             r.fileName = obj["filename"] as? String
             r.referer = obj["referer"] as? String
@@ -168,8 +192,8 @@ final class ServerController: ObservableObject {
             r.cookieHeader = obj["cookieHeader"] as? String
             r.cookies = obj["cookies"] as? [[String: Any]]
             r.kind = (obj["kind"] as? String) == "video" ? .video : .file
-            if let h = obj["headers"] as? [String: String] { r.extraHeaders = h }
-            if let s = obj["segments"] as? Int { r.segments = s }
+            if let h = obj["headers"] as? [String: String] { r.extraHeaders = NetGuard.sanitizedExtraHeaders(h) }
+            if let s = obj["segments"] as? Int { r.segments = min(16, max(1, s)) }
             if let hexpected = obj["expectedHash"] as? String, !hexpected.isEmpty {
                 r.expectedHash = hexpected
                 if let algoStr = (obj["hashAlgorithm"] as? String)?.lowercased(),

@@ -50,6 +50,9 @@ struct DownloadItem: Identifiable, Codable, Equatable {
     var completedAt: Date? = nil
     var finalPath: String? = nil
     var requestedSegments: Int = 0      // 0 = ayarlardaki değer
+    // Sunucu doğrulama bilgisi: resume'da dosya değişimini yakalamak için.
+    var etag: String? = nil
+    var lastModified: String? = nil
     // Hash doğrulama (ISO vb.): beklenen hash + hesaplanan hash + sonuç.
     var expectedHash: String? = nil     // normalize edilmiş hex (küçük harf)
     var hashAlgorithm: String? = nil    // HashAlgorithm.rawValue
@@ -71,7 +74,8 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         case id, url, fileName, directory, kind, state, totalBytes, receivedBytes, supportsRanges,
              segments, headers, cookieFile, errorMessage, createdAt, completedAt, finalPath, requestedSegments,
              expectedHash, hashAlgorithm, computedHash, hashVerified,
-             playlistId, playlistTitle, playlistIndex, playlistCount
+             playlistId, playlistTitle, playlistIndex, playlistCount,
+             etag, lastModified
     }
 
     init(id: UUID = UUID(), url: URL, fileName: String, directory: URL, kind: DownloadKind = .file,
@@ -82,7 +86,8 @@ struct DownloadItem: Identifiable, Codable, Equatable {
          expectedHash: String? = nil, hashAlgorithm: String? = nil,
          computedHash: String? = nil, hashVerified: Bool? = nil,
          playlistId: String? = nil, playlistTitle: String? = nil,
-         playlistIndex: Int? = nil, playlistCount: Int? = nil) {
+         playlistIndex: Int? = nil, playlistCount: Int? = nil,
+         etag: String? = nil, lastModified: String? = nil) {
         self.id = id
         self.url = url
         self.fileName = fileName
@@ -108,6 +113,8 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         self.playlistTitle = playlistTitle
         self.playlistIndex = playlistIndex
         self.playlistCount = playlistCount
+        self.etag = etag
+        self.lastModified = lastModified
     }
 
     init(from decoder: Decoder) throws {
@@ -137,6 +144,8 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         playlistTitle = try c.decodeIfPresent(String.self, forKey: .playlistTitle)
         playlistIndex = try c.decodeIfPresent(Int.self, forKey: .playlistIndex)
         playlistCount = try c.decodeIfPresent(Int.self, forKey: .playlistCount)
+        etag = try c.decodeIfPresent(String.self, forKey: .etag)
+        lastModified = try c.decodeIfPresent(String.self, forKey: .lastModified)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -166,6 +175,8 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         try c.encodeIfPresent(playlistTitle, forKey: .playlistTitle)
         try c.encodeIfPresent(playlistIndex, forKey: .playlistIndex)
         try c.encodeIfPresent(playlistCount, forKey: .playlistCount)
+        try c.encodeIfPresent(etag, forKey: .etag)
+        try c.encodeIfPresent(lastModified, forKey: .lastModified)
     }
 
     var destinationURL: URL { directory.appendingPathComponent(fileName) }

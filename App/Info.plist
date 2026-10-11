@@ -31,6 +31,7 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
+		<!-- Gerekli: kullanıcının verdiği keyfi http:// URL'ler de indirilmeli. Birinci-taraf uçlar sabit https'tir. -->
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>

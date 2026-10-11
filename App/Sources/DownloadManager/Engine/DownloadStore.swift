@@ -100,7 +100,9 @@ final class DownloadStore: ObservableObject {
 
     @discardableResult
     func add(_ req: NewDownloadRequest) -> DownloadItem {
-        var headers = req.extraHeaders
+        // İkinci katman: köprü zaten filtreliyor; doğrudan çağrılarda da
+        // kimlik/taşıyıcı başlıklar enjekte edilemesin.
+        var headers = NetGuard.sanitizedExtraHeaders(req.extraHeaders)
         if let r = req.referer, !r.isEmpty { headers["Referer"] = r }
         if let ua = req.userAgent, !ua.isEmpty { headers["User-Agent"] = ua }
         if let c = req.cookieHeader, !c.isEmpty { headers["Cookie"] = c }
@@ -280,6 +282,8 @@ final class DownloadStore: ObservableObject {
         if resumable {
             cfg.resumeSegments = item.segments
             cfg.resumeTotal = item.totalBytes
+            cfg.resumeETag = item.etag
+            cfg.resumeLastModified = item.lastModified
         }
         let dl = SegmentedDownloader(configuration: cfg)
         let id = item.id
@@ -320,6 +324,8 @@ final class DownloadStore: ObservableObject {
             item.totalBytes = p.totalBytes
             item.supportsRanges = p.supportsRanges
             item.state = .downloading
+            item.etag = p.etag
+            item.lastModified = p.lastModified
             if let n = p.suggestedFileName, !n.isEmpty {
                 item.fileName = Self.sanitize(n)
             } else if let final = p.finalURL, item.fileName == Self.sanitize(Self.fileName(from: item.url)), final != item.url {
@@ -757,11 +763,18 @@ final class DownloadStore: ObservableObject {
     }
 
     private func writeCookieFile(_ cookies: [[String: Any]], id: UUID) -> String? {
+        // Netscape formatı sekme/newline ile bozulmasın diye kontrol karakterlerini temizle.
+        func clean(_ s: String) -> String {
+            s.replacingOccurrences(of: "\t", with: " ")
+                .replacingOccurrences(of: "\n", with: " ")
+                .replacingOccurrences(of: "\r", with: " ")
+        }
         var lines = ["# Netscape HTTP Cookie File"]
         for c in cookies {
-            guard let name = c["name"] as? String, let value = c["value"] as? String,
-                  let domain = c["domain"] as? String else { continue }
-            let path = c["path"] as? String ?? "/"
+            guard let name = (c["name"] as? String).map(clean), !name.isEmpty,
+                  let value = (c["value"] as? String).map(clean),
+                  let domain = (c["domain"] as? String).map(clean), !domain.isEmpty else { continue }
+            let path = clean(c["path"] as? String ?? "/")
             let secure = (c["secure"] as? Bool ?? false) ? "TRUE" : "FALSE"
             let exp = Int64((c["expirationDate"] as? Double) ?? 0)
             let flag = domain.hasPrefix(".") ? "TRUE" : "FALSE"

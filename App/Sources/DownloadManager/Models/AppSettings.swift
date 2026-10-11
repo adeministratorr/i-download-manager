@@ -8,6 +8,9 @@ final class AppSettings: ObservableObject {
     @Published var segmentCount: Int { didSet { defaults.set(segmentCount, forKey: "segmentCount") } }
     @Published var maxConcurrent: Int { didSet { defaults.set(maxConcurrent, forKey: "maxConcurrent") } }
     @Published var serverPort: Int { didSet { defaults.set(serverPort, forKey: "serverPort") } }
+    /// Loopback köprüyü sürebilmek için eklentinin göndermesi gereken gizli anahtar.
+    /// İlk açılışta üretilir; Settings ▸ Browser'dan kopyalanıp eklenti ayarlarına yapıştırılır.
+    @Published var bridgeToken: String { didSet { defaults.set(bridgeToken, forKey: "bridgeToken") } }
     @Published var downloadDirectory: String { didSet { defaults.set(downloadDirectory, forKey: "downloadDirectory") } }
     @Published var ytdlpPath: String { didSet { defaults.set(ytdlpPath, forKey: "ytdlpPath") } }
     @Published var videoFormat: String { didSet { defaults.set(videoFormat, forKey: "videoFormat") } }   // custom -f (overrides pickers when non-empty)
@@ -32,6 +35,12 @@ final class AppSettings: ObservableObject {
     /// The user chose “Don't ask again” on the deno install prompt for YouTube downloads.
     @Published var denoPromptSuppressed: Bool { didSet { defaults.set(denoPromptSuppressed, forKey: "denoPromptSuppressed") } }
 
+    /// Yeni rastgele köprü anahtarı üretir (eskisi anında geçersiz kalır;
+    /// eklentilere yenisini yapıştırmak gerekir).
+    func regenerateBridgeToken() {
+        bridgeToken = UUID().uuidString
+    }
+
     /// All file extensions (lowercase, no dot) the app should capture.
     var captureExtensions: [String] { CaptureTypes.extensions(groupIDs: captureGroupIDs, custom: customExtensions) }
 
@@ -44,6 +53,13 @@ final class AppSettings: ObservableObject {
         segmentCount = defaults.object(forKey: "segmentCount") as? Int ?? 8
         maxConcurrent = defaults.object(forKey: "maxConcurrent") as? Int ?? 3
         serverPort = defaults.object(forKey: "serverPort") as? Int ?? 48213
+        if let t = defaults.string(forKey: "bridgeToken"), !t.isEmpty {
+            bridgeToken = t
+        } else {
+            let fresh = UUID().uuidString
+            defaults.set(fresh, forKey: "bridgeToken")
+            bridgeToken = fresh
+        }
         downloadDirectory = defaults.string(forKey: "downloadDirectory") ?? Self.defaultDownloadDir
         ytdlpPath = defaults.string(forKey: "ytdlpPath") ?? ""
         videoFormat = defaults.string(forKey: "videoFormat") ?? ""

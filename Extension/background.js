@@ -7,7 +7,7 @@ const t = (k, subs) => { try { return api.i18n.getMessage(k, subs) || k; } catch
 const IS_FIREFOX = typeof browser !== 'undefined' && String(browser.runtime.getURL('')).startsWith('moz-extension:');
 const IS_SAFARI = !IS_FIREFOX && typeof browser !== 'undefined' && !!browser.runtime.sendNativeMessage && !chrome.downloads?.onDeterminingFilename;
 
-const DEFAULTS = { port: 48213, intercept: true, minSizeMB: 0, sniff: true, autoLaunch: true };
+const DEFAULTS = { port: 48213, intercept: true, minSizeMB: 0, sniff: true, autoLaunch: true, token: '' };
 // Native messaging host bundled with the app (Chrome/Brave/Edge/Firefox); Safari talks to its app extension.
 const NATIVE_HOST = 'com.mesutcevik.mcdownloadmanager';
 const BROWSER = IS_FIREFOX ? 'firefox' : IS_SAFARI ? 'safari' : (navigator.brave ? 'brave' : (/Edg\//.test(navigator.userAgent) ? 'edge' : 'chrome'));
@@ -26,6 +26,10 @@ async function setSettings(patch) {
   await api.storage.local.set({ settings: { ...cur, ...patch } });
 }
 const base = (s) => `http://127.0.0.1:${s.port}`;
+// Bridge auth: the app shows a secret token (Settings → Browser); the user pastes
+// it once into the extension popup. Every bridge call carries it as X-MCDM-Token,
+// so a random local process or another extension cannot drive the app.
+const bridgeHeaders = (s) => ({ ...BRIDGE_HEADERS, ...(s && s.token ? { 'X-MCDM-Token': s.token } : {}) });
 // Custom header = proof the request comes from an extension: ordinary web pages cannot send it
 // without a CORS preflight, and the bridge only grants CORS to extension origins. Chrome omits the
 // Origin header on extension GET requests that are covered by host permissions, so Origin alone is not enough.
@@ -38,7 +42,7 @@ async function ping(settings) {
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 1200);
-    const r = await fetch(base(settings) + '/ping?browser=' + BROWSER, { signal: ctrl.signal, cache: 'no-store', headers: BRIDGE_HEADERS });
+    const r = await fetch(base(settings) + '/ping?browser=' + BROWSER, { signal: ctrl.signal, cache: 'no-store', headers: bridgeHeaders(settings) });
     clearTimeout(t);
     if (!r.ok) return null;
     const app = await r.json();
@@ -53,7 +57,7 @@ async function ping(settings) {
 // ---------- Download progress: toolbar badge + popup list ----------
 async function bridgeJSON(path, init) {
   const settings = await getSettings();
-  const r = await fetch(base(settings) + path, { cache: 'no-store', ...init, headers: { ...BRIDGE_HEADERS, ...(init?.headers || {}) } });
+  const r = await fetch(base(settings) + path, { cache: 'no-store', ...init, headers: { ...bridgeHeaders(settings), ...(init?.headers || {}) } });
   return r.json();
 }
 async function getDownloads() {
@@ -146,7 +150,7 @@ async function sendToApp({ url, filename, referer, kind, playlist }) {
     playlist: !!playlist,
   };
   const post = () => fetch(base(settings) + '/download', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', ...BRIDGE_HEADERS }, body: JSON.stringify(payload),
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...bridgeHeaders(settings) }, body: JSON.stringify(payload),
   });
   try {
     let r;
@@ -426,7 +430,20 @@ api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case 'downloads': sendResponse(await getDownloads()); break;
         case 'action': sendResponse(await downloadAction(msg.id, msg.action)); break;
         case 'download': sendResponse(await sendToApp(msg)); break;
-        case 'setSettings': await setSettings(msg.settings || {}); sendResponse({ ok: true }); break;
+        case 'setSettings': {
+          const patch = { ...(msg.settings || {}) };
+          // Tip/aralık doğrulaması: port dize ("48213@evil.com" userinfo hilesi dahil)
+          // ile saldırgan sunucuya kaydırılamasın.
+          if (typeof patch.port !== 'undefined') {
+            const p = Number(patch.port);
+            if (!Number.isInteger(p) || p < 1024 || p > 65535) delete patch.port;
+            else patch.port = p;
+          }
+          if (typeof patch.token !== 'undefined' && typeof patch.token !== 'string') delete patch.token;
+          await setSettings(patch);
+          sendResponse({ ok: true });
+          break;
+        }
         case 'launchApp': sendResponse({ ok: await launchApp() }); break;
         case 'pageMedia': {
           if (sender.tab) {

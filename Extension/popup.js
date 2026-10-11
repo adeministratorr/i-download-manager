@@ -46,6 +46,7 @@ async function refresh() {
     $('autoLaunch').checked = st.settings.autoLaunch !== false;
     $('port').value = st.settings.port;
     $('minSize').value = st.settings.minSizeMB || 0;
+    if (document.activeElement !== $('token')) $('token').value = st.settings.token || '';
   }
 }
 
@@ -114,7 +115,8 @@ function buildRow(d) {
 }
 
 function updateRow(d) {
-  const li = $('dl').querySelector(`li[data-id="${d.id}"]`); if (!li) return;
+  const esc = (s) => (typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(s) : String(s).replace(/["\\]/g, ''));
+  const li = $('dl').querySelector(`li[data-id="${esc(d.id)}"]`); if (!li) return;
   li.querySelector('.name').textContent = d.name; li.querySelector('.name').title = d.name;
   const active = d.state === 'downloading' || d.state === 'probing';
   const pct = d.total > 0 ? Math.min(100, Math.round((100 * d.received) / d.total)) : (d.state === 'completed' ? 100 : 0);
@@ -164,6 +166,7 @@ $('sniff').onchange = (e) => send({ type: 'setSettings', settings: { sniff: e.ta
 $('autoLaunch').onchange = (e) => send({ type: 'setSettings', settings: { autoLaunch: e.target.checked } });
 $('port').onchange = (e) => send({ type: 'setSettings', settings: { port: parseInt(e.target.value, 10) || 48213 } }).then(refresh);
 $('minSize').onchange = (e) => send({ type: 'setSettings', settings: { minSizeMB: parseInt(e.target.value, 10) || 0 } });
+$('token').onchange = (e) => send({ type: 'setSettings', settings: { token: String(e.target.value || '').trim() } }).then(refresh);
 
 refresh();
 loadMedia();

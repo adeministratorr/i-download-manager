@@ -40,6 +40,7 @@
 		CCFECC40BA806C9CE8D283F7 /* ServerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE44A8B381BE7A3293C1D8DC /* ServerController.swift */; };
 		D9ECABE0BFCE0514E59109C3 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FC9E1391C4326B083297C6B /* main.swift */; };
 		DD47AD949615D3F7357EA56A /* CaptureTypesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2722F3847C9938FE82AE52A6 /* CaptureTypesView.swift */; };
+		E8B0A2A08C838C5F50BF7226 /* NetGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C27776A9EE916509A3DED276 /* NetGuard.swift */; };
 		EA0BD54DF6C5AE59D386CDBB /* ToolInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 842F422B68150676664D0F41 /* ToolInstaller.swift */; };
 		EF65281669A508342D149244 /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6DBC764000EE3129062C866 /* SafariWebExtensionHandler.swift */; };
 		F6E32EAA739C843060EA71E4 /* icons in Resources */ = {isa = PBXBuildFile; fileRef = 4F32204A8C002EDB7A8CA064 /* icons */; };
@@ -123,6 +124,7 @@
 		A586B8190F17D737DA9DA87A /* AddDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDownloadView.swift; sourceTree = "<group>"; };
 		AB398706B5B1AF31514846CB /* LocalServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalServer.swift; sourceTree = "<group>"; };
 		B63E5127C8210C9C6CE88CB8 /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = content.js; sourceTree = "<group>"; };
+		C27776A9EE916509A3DED276 /* NetGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetGuard.swift; sourceTree = "<group>"; };
 		CDA15CED2682BF59E18C3E09 /* SegmentedDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentedDownloader.swift; sourceTree = "<group>"; };
 		D4315A5826C2F72F4247D931 /* ExtensionSetupWizard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionSetupWizard.swift; sourceTree = "<group>"; };
 		D63B5A8793FD88DB85E01AB5 /* SafariExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SafariExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -278,6 +280,7 @@
 				230F2774B9FFB8912976A4CD /* ClipboardWatcher.swift */,
 				FFA232EBC90C29DD738F1E3E /* DownloadStore.swift */,
 				3D4A145EDA69E7881715BDBD /* FileHash.swift */,
+				C27776A9EE916509A3DED276 /* NetGuard.swift */,
 				CDA15CED2682BF59E18C3E09 /* SegmentedDownloader.swift */,
 				5B96EDDD486AAAA976EDFCDA /* VideoDownloader.swift */,
 			);
@@ -470,6 +473,7 @@
 				AC784500F340D94A3AC04673 /* LocalServer.swift in Sources */,
 				780C3DB40CB6A6C5BEB669F4 /* Models.swift in Sources */,
 				A499632D1294D66C49C7D9D6 /* NativeHostRegistry.swift in Sources */,
+				E8B0A2A08C838C5F50BF7226 /* NetGuard.swift in Sources */,
 				151B1283A95CE6C3744174FF /* SegmentedDownloader.swift in Sources */,
 				CCFECC40BA806C9CE8D283F7 /* ServerController.swift in Sources */,
 				4ABFFD403AF2BD3F56116B71 /* SettingsView.swift in Sources */,

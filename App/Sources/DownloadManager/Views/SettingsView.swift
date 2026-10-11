@@ -168,6 +168,22 @@ struct BrowserSettings: View {
                 }
                 Text("The extension uses port 48213 by default. If you change it here, enter the same port in the extension settings.")
                     .font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    Text("Bridge token").frame(width: 90, alignment: .leading)
+                    Text(settings.bridgeToken)
+                        .font(.system(.caption, design: .monospaced))
+                        .lineLimit(1).truncationMode(.middle)
+                        .textSelection(.enabled)
+                    Spacer()
+                    Button("Copy") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(settings.bridgeToken, forType: .string)
+                    }
+                    Button("Regenerate") { settings.regenerateBridgeToken() }
+                }
+                .font(.callout)
+                Text("Paste this token into each browser extension's settings (once). Requests without the token are rejected — even from this Mac. Regenerating disconnects all extensions until you paste the new one.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

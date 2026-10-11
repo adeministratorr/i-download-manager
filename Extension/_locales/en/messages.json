@@ -81,6 +81,9 @@
   "popupMinSize": {
     "message": "Only capture downloads larger than (MB, 0 = all)"
   },
+  "popupToken": {
+    "message": "Bridge token (from the app's Settings → Browser)"
+  },
   "popupDownload": {
     "message": "Download"
   },

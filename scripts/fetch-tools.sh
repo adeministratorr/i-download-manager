@@ -17,6 +17,20 @@ if [[ ! -x yt-dlp ]]; then
   echo "→ downloading yt-dlp…"
   curl -fL --retry 3 -o yt-dlp "$YTDLP_URL"
   chmod +x yt-dlp
+  # Best-effort checksum: release SHA2-256SUMS ile karşılaştır, tutmazsa dur.
+  if curl -fL --retry 3 -o SHA2-256SUMS "https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS" 2>/dev/null; then
+    expect="$(grep 'yt-dlp_macos' SHA2-256SUMS | awk '{print $1}')"
+    actual="$(shasum -a 256 yt-dlp | awk '{print $1}')"
+    if [[ -n "$expect" && "$expect" != "$actual" ]]; then
+      echo "✗ yt-dlp checksum mismatch (expected $expect, got $actual)" >&2
+      rm -f yt-dlp SHA2-256SUMS
+      exit 1
+    fi
+    echo "✓ yt-dlp checksum ok"
+    rm -f SHA2-256SUMS
+  else
+    echo "  (checksum file unavailable, skipping verification)"
+  fi
 fi
 
 if [[ ! -x ffmpeg ]]; then

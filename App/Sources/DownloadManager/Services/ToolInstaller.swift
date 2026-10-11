@@ -100,12 +100,11 @@ final class ToolInstaller: ObservableObject {
         let dest = Self.binDirectory.appendingPathComponent("yt-dlp")
         do {
             try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tmp.path)
-            // Remove quarantine so Gatekeeper lets us execute it.
-            let x = Process()
-            x.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
-            x.arguments = ["-d", "com.apple.quarantine", tmp.path]
-            x.standardError = FileHandle.nullDevice
-            try? x.run(); x.waitUntilExit()
+            // Karantina BİLEREK DURUYOR: Gatekeeper/XProtect ilk çalıştırmada değerlendirsin.
+            // Yayınlanmış SHA2-256SUMS ile best-effort doğrula (eşleşmezse kurma).
+            if let sumsError = verifyYtDlpChecksum(tmp) {
+                throw sumsError
+            }
             versionCache[tmp.path] = nil
             guard let v = version(of: tmp.path), !v.isEmpty else {
                 try? fm.removeItem(at: tmp)
@@ -119,6 +118,39 @@ final class ToolInstaller: ObservableObject {
             try? fm.removeItem(at: tmp)
             return .failure(error)
         }
+    }
+
+    /// `yt-dlp_macos` dosyasını release ile yayınlanan SHA2-256SUMS'e karşı kontrol eder.
+    /// SUMS dosyası alınamaz/ayrıştırılamazsa nil döner (fail-open: bugünkü davranış);
+    /// hash UYUŞMAZSA hata döner (fail-closed).
+    private func verifyYtDlpChecksum(_ file: URL) -> Error? {
+        guard let sumsURL = URL(string: "https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS") else { return nil }
+        var req = URLRequest(url: sumsURL, timeoutInterval: 30)
+        req.setValue(DownloadStore.defaultUserAgent, forHTTPHeaderField: "User-Agent")
+        let sem = DispatchSemaphore(value: 0)
+        var body: Data?
+        var status = 0
+        URLSession.shared.dataTask(with: req) { d, r, _ in
+            status = (r as? HTTPURLResponse)?.statusCode ?? 0
+            body = d
+            sem.signal()
+        }.resume()
+        sem.wait()
+        guard status == 200,
+              let text = body.flatMap({ String(data: $0, encoding: .utf8) }),
+              let line = text.split(separator: "\n").first(where: { $0.contains("yt-dlp_macos") }),
+              let expected = line.split(whereSeparator: \.isWhitespace).first.map({ $0.lowercased() }),
+              expected.count == 64, HashAlgorithm.isHex(String(expected)) else {
+            return nil   // SUMS yoksa/bozuksa engelleme (uygulama güncellemesi gerekebilir)
+        }
+        guard let data = try? Data(contentsOf: file, options: .mappedIfSafe) else {
+            return DownloadFailure(message: String(localized: "Could not read the downloaded yt-dlp for verification."))
+        }
+        let actual = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        guard actual == expected else {
+            return DownloadFailure(message: String(localized: "yt-dlp checksum mismatch; the download was discarded."))
+        }
+        return nil
     }
 
     // MARK: - deno (JavaScript runtime yt-dlp needs for YouTube's signature/n challenges)
