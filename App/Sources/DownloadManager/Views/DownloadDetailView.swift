@@ -32,6 +32,7 @@ struct DownloadDetailView: View {
     private func activeView(_ item: DownloadItem) -> some View {
         VStack(spacing: 14) {
             infoGrid(item)
+            hashSection(item)
             ProgressView(value: item.totalBytes > 0 ? item.progress : 0)
                 .progressViewStyle(.linear)
             HStack(spacing: 12) {
@@ -101,9 +102,86 @@ struct DownloadDetailView: View {
                 Text("Save to").foregroundStyle(.secondary)
                 Text(item.finalPath ?? store.destinationURL(for: item).path).lineLimit(1).truncationMode(.middle)
             }
+            if let exp = item.expectedHash, !exp.isEmpty {
+                GridRow {
+                    Text("Expected hash").foregroundStyle(.secondary)
+                    Text("\(item.hashAlgorithm?.uppercased() ?? "HASH"): \(exp)").lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+                        .font(.system(.callout, design: .monospaced))
+                }
+            }
         }
         .font(.callout.monospacedDigit())
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Hash
+
+    @ViewBuilder
+    private func hashSection(_ item: DownloadItem) -> some View {
+        if item.expectedHash != nil || item.computedHash != nil || item.hashChecking {
+            VStack(alignment: .leading, spacing: 6) {
+                Divider()
+                HStack(spacing: 8) {
+                    Text("Integrity").font(.headline)
+                    Spacer()
+                    hashStatusBadge(item)
+                }
+                if let exp = item.expectedHash, !exp.isEmpty {
+                    hashRow(label: "Expected", value: exp)
+                }
+                if let actual = item.computedHash, !actual.isEmpty {
+                    hashRow(label: "Actual", value: actual)
+                } else if item.hashChecking {
+                    Text("Computing hash…").font(.caption).foregroundStyle(.secondary)
+                }
+                if item.finalPath != nil {
+                    HStack(spacing: 8) {
+                        ForEach(HashAlgorithm.allCases, id: \.self) { algo in
+                            Button(algo.displayName) { store.computeHash(item.id, algorithm: algo) }
+                                .disabled(item.hashChecking)
+                        }
+                        if item.computedHash != nil {
+                            Button("Copy") {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(item.computedHash ?? "", forType: .string)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .font(.callout)
+                    .buttonStyle(.link)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func hashStatusBadge(_ item: DownloadItem) -> some View {
+        if item.hashChecking {
+            Label("Checking…", systemImage: "hourglass").font(.caption).foregroundStyle(.secondary)
+        } else if let ok = item.hashVerified {
+            if ok {
+                Label("Verified", systemImage: "checkmark.seal.fill").font(.caption).foregroundStyle(.green)
+            } else {
+                Label("Mismatch", systemImage: "xmark.seal.fill").font(.caption).foregroundStyle(.red)
+            }
+        } else if item.expectedHash != nil {
+            Label("Pending", systemImage: "clock").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func hashRow(label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(label).foregroundStyle(.secondary).font(.caption).frame(width: 64, alignment: .leading)
+            Text(value).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                .lineLimit(2).truncationMode(.middle)
+            Spacer()
+            Button("Copy") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(value, forType: .string)
+            }
+            .font(.caption).buttonStyle(.link)
+        }
     }
 
     private func statusText(_ item: DownloadItem) -> String {
@@ -121,11 +199,11 @@ struct DownloadDetailView: View {
     private func completedView(_ item: DownloadItem) -> some View {
         VStack(spacing: 16) {
             HStack(spacing: 14) {
-                Image(systemName: "checkmark.circle.fill")
+                Image(systemName: item.hashVerified == false ? "xmark.seal.fill" : "checkmark.circle.fill")
                     .font(.system(size: 44))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(item.hashVerified == false ? .red : .green)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Download completed").font(.title2.bold())
+                    Text(item.hashVerified == false ? "Download completed — hash mismatch" : "Download completed").font(.title2.bold())
                     Text(item.fileName).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer()
@@ -153,6 +231,7 @@ struct DownloadDetailView: View {
             }
             .font(.callout)
             .frame(maxWidth: .infinity, alignment: .leading)
+            hashSection(item)
             HStack {
                 Button("Close") { DetailWindowManager.shared.close(id: item.id) }
                     .keyboardShortcut(.cancelAction)

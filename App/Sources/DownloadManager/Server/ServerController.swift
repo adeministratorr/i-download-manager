@@ -149,6 +149,7 @@ final class ServerController: ObservableObject {
                     "total": $0.totalBytes,
                     "received": $0.receivedBytes,
                     "stage": $0.stage,
+                    "hashVerified": $0.hashVerified as Any,
                 ]
             }
             return .json(["ok": true, "items": list])
@@ -169,6 +170,13 @@ final class ServerController: ObservableObject {
             r.kind = (obj["kind"] as? String) == "video" ? .video : .file
             if let h = obj["headers"] as? [String: String] { r.extraHeaders = h }
             if let s = obj["segments"] as? Int { r.segments = s }
+            if let hexpected = obj["expectedHash"] as? String, !hexpected.isEmpty {
+                r.expectedHash = hexpected
+                if let algoStr = (obj["hashAlgorithm"] as? String)?.lowercased(),
+                   let algo = HashAlgorithm(rawValue: algoStr) {
+                    r.hashAlgorithm = algo
+                }
+            }
             let item = store.add(r)
             return .json(["ok": true, "id": item.id.uuidString])
 

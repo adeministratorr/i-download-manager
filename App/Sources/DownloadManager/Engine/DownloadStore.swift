@@ -14,6 +14,8 @@ struct NewDownloadRequest {
     var kind: DownloadKind = .file
     var extraHeaders: [String: String] = [:]
     var segments: Int? = nil
+    var expectedHash: String? = nil
+    var hashAlgorithm: HashAlgorithm? = nil
 
     init(url: URL) { self.url = url }
 }
@@ -109,6 +111,14 @@ final class DownloadStore: ObservableObject {
                                 kind: req.kind)
         item.headers = headers
         item.requestedSegments = req.segments ?? 0
+        if let raw = req.expectedHash {
+            let norm = HashAlgorithm.normalize(raw)
+            if !norm.isEmpty, HashAlgorithm.isHex(norm) {
+                let algo = req.hashAlgorithm ?? HashAlgorithm.detect(norm) ?? .sha256
+                item.expectedHash = norm
+                item.hashAlgorithm = algo.rawValue
+            }
+        }
         if req.kind == .video, let cookies = req.cookies, !cookies.isEmpty {
             item.cookieFile = writeCookieFile(cookies, id: item.id)
         }
@@ -120,13 +130,15 @@ final class DownloadStore: ObservableObject {
         return item
     }
 
-    func addURLs(_ text: String, kind: DownloadKind, segments: Int? = nil) {
+    func addURLs(_ text: String, kind: DownloadKind, segments: Int? = nil, expectedHash: String? = nil, hashAlgorithm: HashAlgorithm? = nil) {
         for line in text.split(whereSeparator: \.isNewline) {
             let s = line.trimmingCharacters(in: .whitespaces)
             guard let url = URL(string: s), let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme) else { continue }
             var r = NewDownloadRequest(url: url)
             r.kind = kind
             r.segments = segments
+            r.expectedHash = expectedHash
+            r.hashAlgorithm = hashAlgorithm
             add(r)
         }
     }
@@ -230,6 +242,8 @@ final class DownloadStore: ObservableObject {
                 items[i] = item
                 notifyCompleted(item)
                 DetailWindowManager.shared.didComplete(id: id, autoClose: settings.autoCloseDetail)
+                // Beklenen hash varsa arka planda doğrula (ISO kontrolü).
+                if item.expectedHash != nil { verifyHash(id) }
             } catch {
                 item.state = .failed
                 item.errorMessage = error.localizedDescription
@@ -351,6 +365,7 @@ final class DownloadStore: ObservableObject {
             items[i] = item
             notifyCompleted(item)
             DetailWindowManager.shared.didComplete(id: id, autoClose: settings.autoCloseDetail)
+            if item.expectedHash != nil, item.finalPath != nil { verifyHash(id) }
         case .failure(let e):
             if !cookielessVideos.contains(id), VideoDownloader.isYouTube(item.url),
                VideoDownloader.isSignedInClientFailure(e.localizedDescription),
@@ -463,6 +478,88 @@ final class DownloadStore: ObservableObject {
     func resumeAll() { items.filter { [.paused, .failed].contains($0.state) }.forEach { resume($0.id) } }
     func clearFinished() {
         items.filter { [.completed, .cancelled].contains($0.state) }.forEach { remove($0.id) }
+    }
+
+    // MARK: - Hash doğrulama (ISO vb.)
+
+    /// Bitmiş dosyanın hash'ini beklenen değerle karşılaştırır (arka planda).
+    /// Eşleşmezse öğe `failed` olur ama dosya silinmez; kullanıcı yine açabilir.
+    func verifyHash(_ id: UUID) {
+        guard let i = index(of: id) else { return }
+        let item = items[i]
+        guard let path = item.finalPath,
+              FileManager.default.fileExists(atPath: path),
+              let expected = item.expectedHash, !expected.isEmpty,
+              let algoRaw = item.hashAlgorithm,
+              let algo = HashAlgorithm(rawValue: algoRaw) else { return }
+        guard !item.hashChecking else { return }
+        update(id) { $0.hashChecking = true; $0.hashVerified = nil; $0.errorMessage = nil }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let result: Result<String, Error> = {
+                do { return .success(try FileHash.compute(path: path, algorithm: algo)) }
+                catch { return .failure(error) }
+            }()
+            DispatchQueue.main.async {
+                guard let self, self.index(of: id) != nil else { return }
+                switch result {
+                case .success(let actual):
+                    let ok = actual.lowercased() == expected.lowercased()
+                    self.update(id) {
+                        $0.hashChecking = false
+                        $0.computedHash = actual
+                        $0.hashVerified = ok
+                        if !ok {
+                            $0.state = .failed
+                            $0.errorMessage = String(localized: "Hash mismatch (\(algo.displayName)): file may be corrupt. Expected \(expected.prefix(16))…, got \(actual.prefix(16))…")
+                        }
+                    }
+                case .failure(let e):
+                    self.update(id) {
+                        $0.hashChecking = false
+                        $0.hashVerified = nil
+                        $0.errorMessage = e.localizedDescription
+                    }
+                }
+                self.scheduleSave()
+            }
+        }
+    }
+
+    /// Beklenen hash yokken bile dosyanın hash'ini hesaplar (kopyala/karşılaştır için).
+    /// Beklenen hash aynı algoritmadaysa otomatik doğrular.
+    func computeHash(_ id: UUID, algorithm: HashAlgorithm) {
+        guard let i = index(of: id) else { return }
+        let item = items[i]
+        guard let path = item.finalPath,
+              FileManager.default.fileExists(atPath: path) else { return }
+        guard !item.hashChecking else { return }
+        update(id) { $0.hashChecking = true }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let result: Result<String, Error> = {
+                do { return .success(try FileHash.compute(path: path, algorithm: algorithm)) }
+                catch { return .failure(error) }
+            }()
+            DispatchQueue.main.async {
+                guard let self, self.index(of: id) != nil else { return }
+                switch result {
+                case .success(let actual):
+                    self.update(id) {
+                        $0.hashChecking = false
+                        $0.computedHash = actual
+                        $0.hashAlgorithm = algorithm.rawValue
+                        if let exp = $0.expectedHash, !exp.isEmpty {
+                            $0.hashVerified = (actual.lowercased() == exp.lowercased())
+                        }
+                    }
+                case .failure(let e):
+                    self.update(id) {
+                        $0.hashChecking = false
+                        $0.errorMessage = e.localizedDescription
+                    }
+                }
+                self.scheduleSave()
+            }
+        }
     }
 
     func revealInFinder(_ item: DownloadItem) {

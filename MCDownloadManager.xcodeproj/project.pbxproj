@@ -45,6 +45,7 @@
 		F6E32EAA739C843060EA71E4 /* icons in Resources */ = {isa = PBXBuildFile; fileRef = 4F32204A8C002EDB7A8CA064 /* icons */; };
 		FF36B17C060542ACFDDD98FD /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78315EAEA35A1BB070808C40 /* main.swift */; };
 		FF7DBBC49FB6672768627A73 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A5CC4471590244550393166 /* App.swift */; };
+		FF8C095DB0C1A3D06FAD30C8 /* FileHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D4A145EDA69E7881715BDBD /* FileHash.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,6 +102,7 @@
 		3A5CC4471590244550393166 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		3B4E2AC443B11C6AD0C77DAE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		3C449D1F34DAA3E448231E2A /* DownloadDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadDetailView.swift; sourceTree = "<group>"; };
+		3D4A145EDA69E7881715BDBD /* FileHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileHash.swift; sourceTree = "<group>"; };
 		4F32204A8C002EDB7A8CA064 /* icons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = icons; path = Extension/icons; sourceTree = SOURCE_ROOT; };
 		4FC9E1391C4326B083297C6B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		527B0E4A5E47A090110785DB /* background.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = background.js; sourceTree = "<group>"; };
@@ -275,6 +277,7 @@
 			children = (
 				230F2774B9FFB8912976A4CD /* ClipboardWatcher.swift */,
 				FFA232EBC90C29DD738F1E3E /* DownloadStore.swift */,
+				3D4A145EDA69E7881715BDBD /* FileHash.swift */,
 				CDA15CED2682BF59E18C3E09 /* SegmentedDownloader.swift */,
 				5B96EDDD486AAAA976EDFCDA /* VideoDownloader.swift */,
 			);
@@ -462,6 +465,7 @@
 				A88422645DD9A03CCC3056AB /* DownloadDetailView.swift in Sources */,
 				07792A4DCF88CF4FB361FDAD /* DownloadStore.swift in Sources */,
 				4D60CF95BED45A682E1D3DC8 /* ExtensionSetupWizard.swift in Sources */,
+				FF8C095DB0C1A3D06FAD30C8 /* FileHash.swift in Sources */,
 				8E5349391D8DF88F50F012EE /* Formatters.swift in Sources */,
 				AC784500F340D94A3AC04673 /* LocalServer.swift in Sources */,
 				780C3DB40CB6A6C5BEB669F4 /* Models.swift in Sources */,

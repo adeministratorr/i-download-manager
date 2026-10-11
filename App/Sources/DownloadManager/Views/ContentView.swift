@@ -305,8 +305,11 @@ struct StatusCell: View {
     }
 
     private var text: String {
+        if item.hashVerified == false {
+            return String(localized: "Hash mismatch — file may be corrupt")
+        }
         switch item.state {
-        case .completed: return String(localized: "Completed")
+        case .completed: return item.hashVerified == true ? String(localized: "Completed · hash verified") : String(localized: "Completed")
         case .queued: return String(localized: "Added")
         case .failed: return String(localized: "Error: \(item.errorMessage ?? "")")
         case .downloading, .paused, .probing:
@@ -318,6 +321,7 @@ struct StatusCell: View {
     }
 
     private var tint: Color {
+        if item.hashVerified == false { return .red }
         switch item.state {
         case .paused: return .orange
         case .failed: return .red

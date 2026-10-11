@@ -8,6 +8,9 @@ struct AddDownloadView: View {
     @State private var text = ""
     @State private var asVideo = false
     @State private var segments = 0
+    @State private var expectedHash = ""
+    @State private var hashAlgorithm: HashAlgorithm = .sha256
+    @State private var hashError: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -27,6 +30,28 @@ struct AddDownloadView: View {
                     }
                 }
             }
+            DisclosureGroup("Expected hash (optional, e.g. ISO SHA-256)") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Picker("Algorithm", selection: $hashAlgorithm) {
+                        ForEach(HashAlgorithm.allCases, id: \.self) { algo in
+                            Text(algo.displayName).tag(algo)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    TextField("Paste the publisher's hash…", text: $expectedHash)
+                        .font(.system(.body, design: .monospaced))
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: expectedHash) { _ in hashError = nil }
+                    if let hashError {
+                        Text(hashError).font(.caption).foregroundStyle(.red)
+                    } else {
+                        Text("Leave empty to skip verification. Download is checked automatically when finished.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.top, 4)
+            }
+            .font(.callout)
             HStack {
                 Button("Paste from Clipboard") {
                     if let s = NSPasteboard.general.string(forType: .string) { text = s }
@@ -34,8 +59,29 @@ struct AddDownloadView: View {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Download") {
-                    store.addURLs(text, kind: asVideo ? .video : .file, segments: segments == 0 ? nil : segments)
-                    dismiss()
+                    let trimmed = expectedHash.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed.isEmpty {
+                        store.addURLs(text, kind: asVideo ? .video : .file, segments: segments == 0 ? nil : segments)
+                        dismiss()
+                    } else {
+                        let norm = HashAlgorithm.normalize(trimmed)
+                        guard HashAlgorithm.isHex(norm) else {
+                            hashError = String(localized: "Hash must be hexadecimal (0-9, a-f).")
+                            return
+                        }
+                        if norm.count != hashAlgorithm.hexLength,
+                           let detected = HashAlgorithm.detect(norm) {
+                            hashAlgorithm = detected
+                        }
+                        guard norm.count == hashAlgorithm.hexLength else {
+                            hashError = String(localized: "\(hashAlgorithm.displayName) must be \(hashAlgorithm.hexLength) hex characters (got \(norm.count)).")
+                            return
+                        }
+                        store.addURLs(text, kind: asVideo ? .video : .file,
+                                      segments: segments == 0 ? nil : segments,
+                                      expectedHash: norm, hashAlgorithm: hashAlgorithm)
+                        dismiss()
+                    }
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
