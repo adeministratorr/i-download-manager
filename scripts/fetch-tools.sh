@@ -85,6 +85,9 @@ if [[ ! -x aria2c ]]; then
     rm -rf _a64 _ax86 aria2-arm64.zip aria2-x86.zip
   fi
   chmod +x aria2c
+  # Xcode, hardened-runtime ile imzalarken imzasız iç binary'de patlar
+  # (yt-dlp/ffmpeg hazır imzalı gelir, static aria2c gelmez) — ad-hoc imzala.
+  codesign --force --sign - aria2c 2>/dev/null || true
 fi
 
 xattr -cr yt-dlp ffmpeg aria2c 2>/dev/null || true
