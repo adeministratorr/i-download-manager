@@ -5,7 +5,7 @@ import SafariServices
 
 /// Browser extension helpers. Supported browsers for the guided setup: Safari, Google Chrome, Brave, Firefox.
 enum BrowserIntegration {
-    static let safariExtensionID = "com.mesutcevik.mcdownloadmanager.safari"
+    static let safariExtensionID = "tr.ademyuce.idownloadmanager.safari"
     /// Set this once the extension is published on the Chrome Web Store; the wizard then links to it.
     static let chromeWebStoreURL: URL? = nil
 
@@ -56,7 +56,7 @@ enum BrowserIntegration {
         return Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/ChromeExtension")
     }
 
-    /// ~/Downloads/MC Download Manager/Browser Plugins
+    /// ~/Downloads/iDownload Manager/Browser Plugins
     static var pluginsRoot: URL {
         URL(fileURLWithPath: AppSettings.defaultDownloadDir).appendingPathComponent("Browser Plugins", isDirectory: true)
     }
@@ -74,7 +74,7 @@ enum BrowserIntegration {
         if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
         try fm.copyItem(at: bundledExtensionFolder, to: dest)
         let readme = """
-        MC Download Manager — \(kind.name) extension
+        iDownload Manager — \(kind.name) extension
 
         1. Open \(kind.extensionsPageURL) in \(kind.name).
         2. Turn on "Developer mode" (top right).
@@ -125,7 +125,7 @@ enum BrowserIntegration {
     /// Re-registers the app and its extension with the system. Runs in the background.
     static func repairSafariExtension(completion: (() -> Void)? = nil) {
         let appPath = Bundle.main.bundleURL.path
-        let appex = Bundle.main.bundleURL.appendingPathComponent("Contents/PlugIns/MC Download Manager Extension.appex").path
+        let appex = Bundle.main.bundleURL.appendingPathComponent("Contents/PlugIns/iDownload Manager Extension.appex").path
         queue.async {
             run("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister", ["-f", appPath])
             run("/usr/bin/pluginkit", ["-a", appex])
@@ -181,7 +181,7 @@ enum BrowserIntegration {
         let fm = FileManager.default
         let dir = pluginFolder(for: .firefox)
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        let dest = dir.appendingPathComponent("mc-download-manager.xpi")
+        let dest = dir.appendingPathComponent("i-download-manager.xpi")
         if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
         try fm.copyItem(at: src, to: dest)
         return dest

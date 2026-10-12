@@ -15,7 +15,7 @@ final class ToolInstaller: ObservableObject {
 
     static var binDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return base.appendingPathComponent("MC Download Manager/bin", isDirectory: true)
+        return base.appendingPathComponent("iDownload Manager/bin", isDirectory: true)
     }
     static var userYtDlpPath: String { binDirectory.appendingPathComponent("yt-dlp").path }
     static var userDenoPath: String { binDirectory.appendingPathComponent("deno").path }

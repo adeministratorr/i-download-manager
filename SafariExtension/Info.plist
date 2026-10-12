@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>MC Download Manager</string>
+	<string>iDownload Manager</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -28,6 +28,6 @@
 		<string>$(PRODUCT_MODULE_NAME).SafariWebExtensionHandler</string>
 	</dict>
 	<key>NSHumanReadableDescription</key>
-	<string>Sends browser downloads to the MC Download Manager app and captures videos on pages.</string>
+	<string>Sends browser downloads to the iDownload Manager app and captures videos on pages.</string>
 </dict>
 </plist>

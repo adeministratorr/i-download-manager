@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/icon.png" width="128" alt="MC Download Manager simgesi">
+  <img src="docs/icon.png" width="128" alt="iDownload Manager simgesi">
 </p>
 
-<h1 align="center">MC Download Manager</h1>
+<h1 align="center">iDownload Manager</h1>
 
 <p align="center">
   macOS için hızlı, açık kaynaklı bir indirme yöneticisi.<br>
@@ -10,11 +10,11 @@
 </p>
 
 <p align="center">
-  <a href="README.md">🇬🇧 English</a> · <a href="https://github.com/mstcvk/mc-download-manager/releases">Sürümler</a> · <a href="#kurulum">Homebrew</a>
+  <a href="README.md">🇬🇧 English</a> · <a href="https://github.com/adeministratorr/i-download-manager/releases">Sürümler</a> · <a href="#kurulum">Homebrew</a>
 </p>
 
 <p align="center">
-  <a href="https://youtu.be/Set5DFC5xmg"><img src="docs/video-tr.png" width="720" alt="1 dakikalık MC Download Manager tanıtım videosunu YouTube'da izleyin"></a><br>
+  <a href="https://youtu.be/Set5DFC5xmg"><img src="docs/video-tr.png" width="720" alt="1 dakikalık iDownload Manager tanıtım videosunu YouTube'da izleyin"></a><br>
   <sub>▶ <a href="https://youtu.be/Set5DFC5xmg">1 dakikalık tanıtımı izleyin</a> · <a href="https://youtu.be/SsHWR9UFCM0">English video</a></sub>
 </p>
 
@@ -29,7 +29,7 @@ DMG'yi açıp uygulamayı *Applications* klasörüne sürüklemek yeterlidir. Ar
   Sunucu `Range` desteklemiyorsa tek akışa düşer; `429`/`503` sınırlamalarında bağlantı sayısı adaptif olarak azaltılır.
 - **Duraklat / sürdür** — parça durumları diske yazılır; uygulama yeniden açılsa bile kaldığı yerden devam eder.
 - **Tarayıcı entegrasyonu** — Safari, Google Chrome, Brave ve Firefox için tek kaynaklı WebExtension. Adım adım kurulum sihirbazı her tarayıcıyı
-  tek tek ele alır (eklenti dosyaları `~/Downloads/MC Download Manager/Browser Plugins/` altına yerleştirilir).
+  tek tek ele alır (eklenti dosyaları `~/Downloads/iDownload Manager/Browser Plugins/` altına yerleştirilir).
   Tarayıcıdaki indirme iptal edilip çerezler, `Referer` ve `User-Agent` ile birlikte uygulamaya iletilir; yakalanan dosya türleri ayarlanabilir.
   Uygulama çalışmıyorsa eklenti onu başlatır (native messaging) ve açılınca indirmeyi teslim eder; başlatamazsa indirme tarayıcıda devam eder.
 - **Video indirme** — sayfadaki `<video>`, `.m3u8` ve `.mpd` akışları yakalanır; "Bu sayfadaki videoyu indir" gömülü yt-dlp'yi
@@ -50,16 +50,16 @@ DMG'yi açıp uygulamayı *Applications* klasörüne sürüklemek yeterlidir. Ar
 **Homebrew**
 
 ```bash
-brew install --cask mstcvk/tap/mc-download-manager
+brew install --cask adeministratorr/tap/i-download-manager
 ```
 
-Güncellemek için `brew upgrade --cask mc-download-manager`. Ardından aşağıdaki tarayıcı adımlarıyla (2 ve 3) devam edin.
+Güncellemek için `brew upgrade --cask i-download-manager`. Ardından aşağıdaki tarayıcı adımlarıyla (2 ve 3) devam edin.
 
 **Elle kurulum**
 
-1. [Sürümler](https://github.com/mstcvk/mc-download-manager/releases) sayfasından DMG'yi indirin, açın ve **MC Download Manager.app**'i *Applications*'a sürükleyin.
+1. [Sürümler](https://github.com/adeministratorr/i-download-manager/releases) sayfasından DMG'yi indirin, açın ve **iDownload Manager.app**'i *Applications*'a sürükleyin.
    - Notarize edilmemiş derlemelerde ilk açılışta macOS uyarı verir: *Sistem Ayarları ▸ Gizlilik ve Güvenlik ▸ "Yine de Aç"*.
-2. **Safari:** *Safari ▸ Ayarlar ▸ Uzantılar ▸ MC Download Manager* → etkinleştirin ve tüm web sitelerine izin verin.
+2. **Safari:** *Safari ▸ Ayarlar ▸ Uzantılar ▸ iDownload Manager* → etkinleştirin ve tüm web sitelerine izin verin.
    - Ad-hoc imzalı derlemelerde Safari ayrıca *Geliştirici ▸ İmzasız uzantılara izin ver* seçeneğini ister (Developer ID ile imzalı sürümlerde gerekmez).
 3. **Chrome:** `chrome://extensions` ▸ *Geliştirici modu* ▸ *Paketlenmemiş öğe yükle* ▸ uygulama içindeki
    *Ayarlar ▸ Tarayıcı ▸ "Klasörü Göster"* ile açılan `ChromeExtension` klasörünü seçin.
@@ -74,10 +74,10 @@ Gereksinimler: macOS 13+, Xcode 15+, [xcodegen](https://github.com/yonaskolb/Xco
 
 ```bash
 scripts/fetch-tools.sh   # universal yt-dlp ve ffmpeg (arm64 + x86_64) ikililerini Tools/ içine indirir
-scripts/build.sh         # Release derler, imzalar ve build/MC Download Manager <sürüm>.dmg üretir
+scripts/build.sh         # Release derler, imzalar ve build/iDownload Manager <sürüm>.dmg üretir
 ```
 
-Geliştirme için `xcodegen generate` çalıştırıp `MCDownloadManager.xcodeproj`'yi Xcode'da açın.
+Geliştirme için `xcodegen generate` çalıştırıp `iDownloadManager.xcodeproj`'yi Xcode'da açın.
 
 Developer ID ile imzalama ve notarizasyon:
 
@@ -89,8 +89,8 @@ GitHub Actions iş akışı (`.github/workflows/build.yml`) her push'ta DMG üre
 
 ### Homebrew cask'ini güncelleme
 
-Bir sürümün DMG'si yüklendikten sonra `scripts/update-cask.sh`, [mstcvk/homebrew-tap](https://github.com/mstcvk/homebrew-tap) içindeki
-`Casks/mc-download-manager.rb` dosyasını `project.yml`'deki sürüme getirir (sağlama toplamı sürüm dosyasından alınır).
+Bir sürümün DMG'si yüklendikten sonra `scripts/update-cask.sh`, [adeministratorr/homebrew-tap](https://github.com/adeministratorr/homebrew-tap) içindeki
+`Casks/i-download-manager.rb` dosyasını `project.yml`'deki sürüme getirir (sağlama toplamı sürüm dosyasından alınır).
 
 ### Chrome eklentisini Web Store'da yayınlama
 
@@ -98,7 +98,7 @@ Chrome, eklentileri yalnızca Chrome Web Store'dan sessizce kurar; eklenti yayı
 *Geliştirici modu ▸ Paketlenmemiş öğe yükle* adımlarıyla yönlendirir. Yayınlamak için:
 
 ```bash
-scripts/pack-extension.sh      # → build/mc-download-manager-chrome-<sürüm>.zip
+scripts/pack-extension.sh      # → build/i-download-manager-chrome-<sürüm>.zip
 ```
 
 Zip'i [Chrome Web Store geliştirici konsoluna](https://chrome.google.com/webstore/devconsole) yükleyin, ardından
@@ -112,8 +112,8 @@ betiğini çalıştırır: bu betik manifest'in Firefox sürümünü (`backgroun
 imzalatıp (her sürüm için bir kez) `FirefoxExtension.xpi` adıyla uygulamaya ekler. Anahtarları anahtar zincirine kaydedin:
 
 ```bash
-security add-generic-password -s mc-download-manager-amo -a issuer -w 'user:…'
-security add-generic-password -s mc-download-manager-amo -a secret -w '…'
+security add-generic-password -s i-download-manager-amo -a issuer -w 'user:…'
+security add-generic-password -s i-download-manager-amo -a secret -w '…'
 ```
 
 Anahtar yoksa imzasız eklenti eklenir; Firefox onu yalnızca `about:debugging` üzerinden geçici olarak yükleyebilir.

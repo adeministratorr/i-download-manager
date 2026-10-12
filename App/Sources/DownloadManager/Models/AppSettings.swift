@@ -49,7 +49,7 @@ final class AppSettings: ObservableObject {
 
     static let defaultDownloadDir: String = {
         let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path ?? NSHomeDirectory() + "/Downloads"
-        return downloads + "/MC Download Manager"
+        return downloads + "/iDownload Manager"
     }()
 
     private init() {

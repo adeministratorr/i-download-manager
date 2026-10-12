@@ -51,7 +51,7 @@ struct ContentView: View {
                 statusBar
             }
         }
-        .navigationTitle("MC Download Manager")
+        .navigationTitle("iDownload Manager")
         .frame(minWidth: 860, minHeight: 480)
         .searchable(text: $search, placement: .toolbar, prompt: "Search in the list")
         .toolbar { toolbarContent }

@@ -6,7 +6,9 @@ import Foundation
 /// Each browser reads `<name>.json` from its NativeMessagingHosts folder; the file names the host binary and the
 /// extensions allowed to call it. Rewritten at every launch, so moving the app keeps the path current.
 enum NativeHostRegistry {
-    static let hostName = "com.mesutcevik.mcdownloadmanager"
+    static let hostName = "tr.ademyuce.idownloadmanager"
+    // Bilerek eski kimlikte tutuldu: paketteki Mozilla-imzalı XPI bu ID ile
+    // imzalı; yeniden imzalanmadan değişirse Firefox native-host bağı kopar.
     static let firefoxAddonID = "mc-download-manager@mstcvk.github.io"
 
     private static let idsKey = "chromiumExtensionIDs"
@@ -70,7 +72,7 @@ enum NativeHostRegistry {
             guard fm.fileExists(atPath: root.path) || (browser.family == .firefox && firefoxInstalled(support: support)) else { continue }
             var manifest: [String: Any] = [
                 "name": hostName,
-                "description": "MC Download Manager launcher",
+                "description": "iDownload Manager launcher",
                 "path": hostBinary.path,
                 "type": "stdio",
             ]

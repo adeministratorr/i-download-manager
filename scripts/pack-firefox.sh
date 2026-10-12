@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Packs the WebExtension for Firefox: build/firefox/ (unpacked) + build/mc-download-manager-firefox-<version>.xpi
+# Packs the WebExtension for Firefox: build/firefox/ (unpacked) + build/i-download-manager-firefox-<version>.xpi
 #
 # Firefox shares the code in Extension/ with Chrome and Safari; only the manifest differs:
 #   - background.scripts instead of background.service_worker (Firefox has no extension service workers)
@@ -8,17 +8,19 @@
 # Release Firefox only installs add-ons signed by Mozilla. With AMO API credentials the xpi is signed as an
 # unlisted (self-distributed) add-on, once per version (AMO rejects a version it has already signed).
 # Credentials come from the environment (AMO_JWT_ISSUER / AMO_JWT_SECRET) or the login keychain:
-#   security add-generic-password -s mc-download-manager-amo -a issuer -w 'user:…'
-#   security add-generic-password -s mc-download-manager-amo -a secret -w '…'
-# The signed file is written to build/mc-download-manager-firefox-<version>-signed.xpi and bundled into the
+#   security add-generic-password -s i-download-manager-amo -a issuer -w 'user:…'
+#   security add-generic-password -s i-download-manager-amo -a secret -w '…'
+# The signed file is written to build/i-download-manager-firefox-<version>-signed.xpi and bundled into the
 # app by scripts/build.sh. API keys: https://addons.mozilla.org/developers/addon/api/key/
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Bilerek eski kimlikte tutuldu: paketteki Mozilla-imzalı XPI bu ID ile imzalı;
+# AMO'da yeni kimlikle yeniden imzalanmadan değişirse Firefox bağı kopar.
 GECKO_ID="mc-download-manager@mstcvk.github.io"
 VERSION="$(python3 -c "import json;print(json.load(open('$ROOT/Extension/manifest.json'))['version'])")"
 STAGE="$ROOT/build/firefox"
-XPI="$ROOT/build/mc-download-manager-firefox-$VERSION.xpi"
-SIGNED="$ROOT/build/mc-download-manager-firefox-$VERSION-signed.xpi"
+XPI="$ROOT/build/i-download-manager-firefox-$VERSION.xpi"
+SIGNED="$ROOT/build/i-download-manager-firefox-$VERSION-signed.xpi"
 
 rm -rf "$STAGE"; mkdir -p "$STAGE"
 rsync -a --exclude ".DS_Store" --exclude "manifest.json" "$ROOT/Extension/" "$STAGE/"
@@ -40,8 +42,8 @@ rm -f "$XPI"
 (cd "$STAGE" && zip -qr -X "$XPI" .)
 echo "✓ $XPI"
 
-AMO_JWT_ISSUER="${AMO_JWT_ISSUER:-$(security find-generic-password -s mc-download-manager-amo -a issuer -w 2>/dev/null || true)}"
-AMO_JWT_SECRET="${AMO_JWT_SECRET:-$(security find-generic-password -s mc-download-manager-amo -a secret -w 2>/dev/null || true)}"
+AMO_JWT_ISSUER="${AMO_JWT_ISSUER:-$(security find-generic-password -s i-download-manager-amo -a issuer -w 2>/dev/null || true)}"
+AMO_JWT_SECRET="${AMO_JWT_SECRET:-$(security find-generic-password -s i-download-manager-amo -a secret -w 2>/dev/null || true)}"
 if [[ -f "$SIGNED" ]]; then
   echo "✓ $SIGNED (already signed)"
 elif [[ -n "$AMO_JWT_ISSUER" && -n "$AMO_JWT_SECRET" ]]; then

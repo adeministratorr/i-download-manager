@@ -28,7 +28,7 @@ struct DownloadManagerApp: App {
     private let core = AppCore.shared
 
     var body: some Scene {
-        Window("MC Download Manager", id: "main") { MainWindowContent(core: core) }
+        Window("iDownload Manager", id: "main") { MainWindowContent(core: core) }
             .mainCommands()
         SharedScenes(core: core)
     }
@@ -40,7 +40,7 @@ struct DownloadManagerApp15: App {
     private let core = AppCore.shared
 
     var body: some Scene {
-        Window("MC Download Manager", id: "main") { MainWindowContent(core: core) }
+        Window("iDownload Manager", id: "main") { MainWindowContent(core: core) }
             .defaultLaunchBehavior(AppPresence.shared.startsHidden ? .suppressed : .presented)
             .restorationBehavior(.disabled)
             .mainCommands()
@@ -144,7 +144,7 @@ struct MenuBarContent: View {
         }
         Button("Check for Updates…") { UpdateChecker.shared.check(interactive: true) }
         Divider()
-        Button("Quit MC Download Manager") { NSApp.terminate(nil) }
+        Button("Quit iDownload Manager") { NSApp.terminate(nil) }
     }
 }
 

@@ -9,7 +9,7 @@ const IS_SAFARI = !IS_FIREFOX && typeof browser !== 'undefined' && !!browser.run
 
 const DEFAULTS = { port: 48213, intercept: true, minSizeMB: 0, sniff: true, autoLaunch: true, token: '' };
 // Native messaging host bundled with the app (Chrome/Brave/Edge/Firefox); Safari talks to its app extension.
-const NATIVE_HOST = 'com.mesutcevik.mcdownloadmanager';
+const NATIVE_HOST = 'tr.ademyuce.idownloadmanager';
 const BROWSER = IS_FIREFOX ? 'firefox' : IS_SAFARI ? 'safari' : (navigator.brave ? 'brave' : (/Edg\//.test(navigator.userAgent) ? 'edge' : 'chrome'));
 
 const MEDIA_EXT = /\.(mp4|m4v|webm|mkv|mov|avi|flv|mp3|m4a|aac|ogg|opus|wav|flac)(\?|#|$)/i;

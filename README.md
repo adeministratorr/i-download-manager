@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/icon.png" width="128" alt="MC Download Manager icon">
+  <img src="docs/icon.png" width="128" alt="iDownload Manager icon">
 </p>
 
-<h1 align="center">MC Download Manager</h1>
+<h1 align="center">iDownload Manager</h1>
 
 <p align="center">
   A fast, open-source download manager for macOS.<br>
@@ -10,11 +10,11 @@
 </p>
 
 <p align="center">
-  <a href="README.tr.md">🇹🇷 Türkçe</a> · <a href="https://github.com/mstcvk/mc-download-manager/releases">Releases</a> · <a href="#installation">Homebrew</a> · <a href="#building-from-source">Build</a>
+  <a href="README.tr.md">🇹🇷 Türkçe</a> · <a href="https://github.com/adeministratorr/i-download-manager/releases">Releases</a> · <a href="#installation">Homebrew</a> · <a href="#building-from-source">Build</a>
 </p>
 
 <p align="center">
-  <a href="https://youtu.be/SsHWR9UFCM0"><img src="docs/video-en.png" width="720" alt="Watch the 1-minute MC Download Manager video on YouTube"></a><br>
+  <a href="https://youtu.be/SsHWR9UFCM0"><img src="docs/video-en.png" width="720" alt="Watch the 1-minute iDownload Manager video on YouTube"></a><br>
   <sub>▶ <a href="https://youtu.be/SsHWR9UFCM0">Watch the 1-minute overview</a> · <a href="https://youtu.be/Set5DFC5xmg">Türkçe video</a></sub>
 </p>
 
@@ -29,7 +29,7 @@ Open the DMG, drag the app to *Applications*, done. The interface is in **Englis
   Falls back to a single stream when the server does not support ranges; adapts the connection count on `429`/`503` throttling.
 - **Pause / resume** — segment state is persisted on disk, so downloads continue where they left off even after a restart.
 - **Browser integration** — one shared WebExtension for Safari, Google Chrome, Brave and Firefox. A step-by-step setup wizard handles each browser
-  one at a time (extension files are placed in `~/Downloads/MC Download Manager/Browser Plugins/`).
+  one at a time (extension files are placed in `~/Downloads/iDownload Manager/Browser Plugins/`).
   The browser download is cancelled and handed to the app together with cookies, `Referer` and `User-Agent`; captured file types are configurable.
   If the app is not running, the extension starts it (native messaging) and hands the download over once it is up; if it cannot, the browser keeps the download.
 - **Video downloads** — `<video>`, `.m3u8` and `.mpd` streams on the page are detected; "Download video from this page" uses the bundled
@@ -51,16 +51,16 @@ Open the DMG, drag the app to *Applications*, done. The interface is in **Englis
 **Homebrew**
 
 ```bash
-brew install --cask mstcvk/tap/mc-download-manager
+brew install --cask adeministratorr/tap/i-download-manager
 ```
 
-Update with `brew upgrade --cask mc-download-manager`. Then continue with the browser steps (2 and 3) below.
+Update with `brew upgrade --cask i-download-manager`. Then continue with the browser steps (2 and 3) below.
 
 **Manual**
 
-1. Download the DMG from [Releases](https://github.com/mstcvk/mc-download-manager/releases), open it and drag **MC Download Manager.app** to *Applications*.
+1. Download the DMG from [Releases](https://github.com/adeministratorr/i-download-manager/releases), open it and drag **iDownload Manager.app** to *Applications*.
    - Builds that are not notarized trigger a Gatekeeper warning on first launch: *System Settings ▸ Privacy & Security ▸ "Open Anyway"*.
-2. **Safari:** *Safari ▸ Settings ▸ Extensions ▸ MC Download Manager* → enable and allow for all websites.
+2. **Safari:** *Safari ▸ Settings ▸ Extensions ▸ iDownload Manager* → enable and allow for all websites.
    - For ad-hoc signed builds Safari also requires *Develop ▸ Allow Unsigned Extensions* (not needed for Developer ID signed builds).
 3. **Chrome:** open `chrome://extensions`, turn on *Developer mode*, choose *Load unpacked* and select the folder shown in the app under
    *Settings ▸ Browser ▸ Show Folder* (`ChromeExtension` inside the app bundle).
@@ -75,10 +75,10 @@ Requirements: macOS 13+, Xcode 15+, [xcodegen](https://github.com/yonaskolb/Xcod
 
 ```bash
 scripts/fetch-tools.sh   # downloads universal yt-dlp and ffmpeg (arm64 + x86_64) into Tools/
-scripts/build.sh         # Release build, code signing and build/MC Download Manager <version>.dmg
+scripts/build.sh         # Release build, code signing and build/iDownload Manager <version>.dmg
 ```
 
-For development run `xcodegen generate` and open `MCDownloadManager.xcodeproj`.
+For development run `xcodegen generate` and open `iDownloadManager.xcodeproj`.
 
 Developer ID signing and notarization:
 
@@ -90,8 +90,8 @@ The GitHub Actions workflow (`.github/workflows/build.yml`) builds a DMG on ever
 
 ### Updating the Homebrew cask
 
-After a release's DMG is uploaded, `scripts/update-cask.sh` bumps `Casks/mc-download-manager.rb` in
-[mstcvk/homebrew-tap](https://github.com/mstcvk/homebrew-tap) to the version in `project.yml` (checksum taken from the release asset).
+After a release's DMG is uploaded, `scripts/update-cask.sh` bumps `Casks/i-download-manager.rb` in
+[adeministratorr/homebrew-tap](https://github.com/adeministratorr/homebrew-tap) to the version in `project.yml` (checksum taken from the release asset).
 
 ### Publishing the Chrome extension to the Web Store
 
@@ -99,7 +99,7 @@ Chrome only installs extensions silently from the Chrome Web Store, so until the
 *Developer mode ▸ Load unpacked*. To publish:
 
 ```bash
-scripts/pack-extension.sh      # → build/mc-download-manager-chrome-<version>.zip
+scripts/pack-extension.sh      # → build/i-download-manager-chrome-<version>.zip
 ```
 
 Upload the zip in the [Chrome Web Store developer console](https://chrome.google.com/webstore/devconsole), then set
@@ -113,8 +113,8 @@ Firefox variant of the manifest (`background.scripts`, `browser_specific_setting
 (once per version) and bundles it as `FirefoxExtension.xpi`. Store the credentials in the login keychain:
 
 ```bash
-security add-generic-password -s mc-download-manager-amo -a issuer -w 'user:…'
-security add-generic-password -s mc-download-manager-amo -a secret -w '…'
+security add-generic-password -s i-download-manager-amo -a issuer -w 'user:…'
+security add-generic-password -s i-download-manager-amo -a secret -w '…'
 ```
 
 Without credentials the unsigned add-on is bundled; Firefox can then only load it temporarily via `about:debugging`.

@@ -52,11 +52,33 @@ final class DownloadStore: ObservableObject {
     init(settings: AppSettings) {
         self.settings = settings
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        supportDir = base.appendingPathComponent("MC Download Manager", isDirectory: true)
+        supportDir = base.appendingPathComponent("iDownload Manager", isDirectory: true)
         try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
         storeURL = supportDir.appendingPathComponent("downloads.json")
+        Self.migrateLegacySupportDir(newStoreURL: storeURL)
         load()
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in self?.tick() }
+    }
+
+    /// MC Download Manager'dan geçiş: kuyruk + cookie'ler + araçlar kopyalanır.
+    /// Köprü anahtarı UserDefaults'tadır (bundle'a özel), o yenilenir — eklentileri
+    /// bir kez yeniden eşleştirmek gerekir. Eski klasör silinmez.
+    private static func migrateLegacySupportDir(newStoreURL: URL) {
+        let fm = FileManager.default
+        guard !fm.fileExists(atPath: newStoreURL.path),
+              let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return }
+        let legacy = base.appendingPathComponent("MC Download Manager", isDirectory: true)
+        guard fm.fileExists(atPath: legacy.appendingPathComponent("downloads.json").path) else { return }
+        let dest = newStoreURL.deletingLastPathComponent()
+        for name in ["downloads.json", "cookies", "bin"] {
+            let src = legacy.appendingPathComponent(name)
+            var isDir: ObjCBool = false
+            guard fm.fileExists(atPath: src.path, isDirectory: &isDir) else { continue }
+            let target = dest.appendingPathComponent(name)
+            if !fm.fileExists(atPath: target.path) {
+                try? fm.copyItem(at: src, to: target)
+            }
+        }
     }
 
     // MARK: - Sorgular
@@ -700,7 +722,7 @@ final class DownloadStore: ObservableObject {
         alert.alertStyle = .informational
         alert.icon = NSApp.applicationIconImage
         alert.messageText = String(localized: "Install the JavaScript runtime for YouTube?")
-        alert.informativeText = String(localized: "YouTube now requires yt-dlp to run JavaScript (deno) to unlock video streams. Without it, YouTube downloads may fail with errors such as “The page needs to be reloaded” or “n challenge solving failed”.\n\nMC Download Manager can download deno (\(ToolInstaller.denoDownloadSize)) from its official GitHub releases and keep it in its own Application Support folder.")
+        alert.informativeText = String(localized: "YouTube now requires yt-dlp to run JavaScript (deno) to unlock video streams. Without it, YouTube downloads may fail with errors such as “The page needs to be reloaded” or “n challenge solving failed”.\n\niDownload Manager can download deno (\(ToolInstaller.denoDownloadSize)) from its official GitHub releases and keep it in its own Application Support folder.")
         alert.addButton(withTitle: String(localized: "Install deno"))
         alert.addButton(withTitle: String(localized: "Not Now")).keyEquivalent = "\u{1b}"
         alert.showsSuppressionButton = true
@@ -1038,7 +1060,7 @@ final class DownloadStore: ObservableObject {
         var values = URLResourceValues()
         values.quarantineProperties = [
             kLSQuarantineTypeKey as String: kLSQuarantineTypeWebDownload,
-            kLSQuarantineAgentNameKey as String: "MC Download Manager",
+            kLSQuarantineAgentNameKey as String: "iDownload Manager",
             kLSQuarantineDataURLKey as String: source.absoluteString,
         ]
         try? target.setResourceValues(values)

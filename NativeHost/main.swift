@@ -2,12 +2,12 @@ import Foundation
 
 // Native messaging host for Chrome, Brave, Edge and Firefox (Safari uses its app extension instead).
 // The browser starts this tool when the extension calls runtime.sendNativeMessage; it understands one
-// request, {"action": "launchApp"}, which starts MC Download Manager in the background so the extension
+// request, {"action": "launchApp"}, which starts iDownload Manager in the background so the extension
 // can hand over a download while the app was not running. Nothing else (URLs, cookies) passes through here.
 //
 // Protocol: each message is a 32-bit length in native byte order followed by UTF-8 JSON, on stdin/stdout.
 
-/// …/MC Download Manager.app/Contents/Helpers/mcdm-native-host → …/MC Download Manager.app
+/// …/iDownload Manager.app/Contents/Helpers/mcdm-native-host → …/iDownload Manager.app
 let appURL: URL = {
     let exe = (Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])).resolvingSymlinksInPath()
     return exe.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

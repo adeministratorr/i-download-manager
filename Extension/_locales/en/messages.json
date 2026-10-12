@@ -1,12 +1,12 @@
 {
   "extName": {
-    "message": "MC Download Manager"
+    "message": "iDownload Manager"
   },
   "extDesc": {
-    "message": "Sends browser downloads to the MC Download Manager app and captures videos on pages."
+    "message": "Sends browser downloads to the iDownload Manager app and captures videos on pages."
   },
   "menuDownloadLink": {
-    "message": "Download with MC Download Manager"
+    "message": "Download with iDownload Manager"
   },
   "menuPageVideo": {
     "message": "Download video from this page (yt-dlp)"
@@ -21,7 +21,7 @@
     "message": "Video download started"
   },
   "notifOfflineTitle": {
-    "message": "MC Download Manager is not running"
+    "message": "iDownload Manager is not running"
   },
   "notifOfflineBody": {
     "message": "Open the app and try again."
@@ -49,7 +49,7 @@
     "message": "App is not running"
   },
   "popupOfflineBox": {
-    "message": "The app is not running. Open MC Download Manager."
+    "message": "The app is not running. Open iDownload Manager."
   },
   "popupLaunch": {
     "message": "Open App"

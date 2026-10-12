@@ -19,7 +19,7 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_16.2.app || true
       - name: Install xcodegen
         run: brew install xcodegen
-      - name: Fetch bundled tools (yt-dlp, ffmpeg)
+      - name: Fetch bundled tools (yt-dlp, ffmpeg, aria2c)
         run: scripts/fetch-tools.sh
       - name: Build DMG (ad-hoc signed)
         run: scripts/build.sh

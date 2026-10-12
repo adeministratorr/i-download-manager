@@ -43,7 +43,7 @@ struct OnboardingView: View {
             HStack(spacing: 12) {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 56, height: 56)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Welcome to MC Download Manager").font(.title2.bold())
+                    Text("Welcome to iDownload Manager").font(.title2.bold())
                     if step == 0 {
                         Text("Which file types should be captured?").foregroundStyle(.secondary)
                     } else {
@@ -58,7 +58,7 @@ struct OnboardingView: View {
                 Divider()
                 Toggle("Watch the clipboard for links and ask to download them", isOn: $settings.watchClipboard)
             } else {
-                Text("The extensions let your browsers hand their downloads to MC Download Manager and capture videos on pages. A guided setup walks you through each browser, one at a time. You can run it later from Settings ▸ Browser Extensions.")
+                Text("The extensions let your browsers hand their downloads to iDownload Manager and capture videos on pages. A guided setup walks you through each browser, one at a time. You can run it later from Settings ▸ Browser Extensions.")
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(browsers) { b in

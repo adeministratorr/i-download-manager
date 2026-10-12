@@ -15,7 +15,7 @@ enum TorrentDownloader {
         let candidates = [
             custom,
             FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-                .appendingPathComponent("MC Download Manager/bin/aria2c").path,
+                .appendingPathComponent("iDownload Manager/bin/aria2c").path,
             helpersDirectory.appendingPathComponent("aria2c").path,
             "/opt/homebrew/bin/aria2c",
             "/usr/local/bin/aria2c",

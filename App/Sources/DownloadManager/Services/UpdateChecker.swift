@@ -5,7 +5,7 @@ import Foundation
 final class UpdateChecker: ObservableObject {
     static let shared = UpdateChecker()
 
-    static let repo = "mstcvk/mc-download-manager"
+    static let repo = "adeministratorr/i-download-manager"
     static let releasesPage = URL(string: "https://github.com/\(repo)/releases/latest")!
 
     @Published var latestVersion: String?
@@ -95,7 +95,7 @@ final class UpdateChecker: ObservableObject {
 
     private func showUpdate(_ r: Release) {
         let alert = NSAlert()
-        alert.messageText = String(localized: "MC Download Manager \(r.version) is available")
+        alert.messageText = String(localized: "iDownload Manager \(r.version) is available")
         var info = String(localized: "You are using version \(Self.currentVersion).")
         if !r.notes.isEmpty { info += "\n\n" + String(r.notes.prefix(600)) }
         alert.informativeText = info
@@ -126,7 +126,7 @@ final class UpdateChecker: ObservableObject {
             alert.informativeText = error
         } else {
             alert.messageText = String(localized: "You're up to date")
-            alert.informativeText = String(localized: "MC Download Manager \(Self.currentVersion) is the latest version.")
+            alert.informativeText = String(localized: "iDownload Manager \(Self.currentVersion) is the latest version.")
         }
         alert.addButton(withTitle: "OK")
         alert.runModal()

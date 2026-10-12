@@ -184,7 +184,7 @@ final class ServerController: ObservableObject {
         case ("GET", "/ping"):
             return .json([
                 "ok": true,
-                "app": "MCDownloadManager",
+                "app": "iDownloadManager",
                 "version": Self.version,
                 "ytdlp": VideoDownloader.locateYtDlp(custom: settings.ytdlpPath) != nil,
                 "active": store.items.filter { $0.state.isActive }.count,

@@ -125,15 +125,15 @@ struct ExtensionSetupWizard: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         case 1:
-            stepTitle("Enable “MC Download Manager” in Safari")
-            Text("In Safari ▸ Settings ▸ Extensions, tick the checkbox next to MC Download Manager. When Safari asks for website access, choose “Always Allow on Every Website” so downloads on all sites are captured.")
+            stepTitle("Enable “iDownload Manager” in Safari")
+            Text("In Safari ▸ Settings ▸ Extensions, tick the checkbox next to iDownload Manager. When Safari asks for website access, choose “Always Allow on Every Website” so downloads on all sites are captured.")
             statusRow(ok: safariEnabled == true,
                       okText: "Extension is enabled in Safari",
                       pendingText: safariEnabled == nil ? "Checking…" : "Not enabled yet — this updates automatically")
             Button("Open Safari Extension Settings Again") { BrowserIntegration.openSafariExtensionPreferences() }
         default:
             stepTitle("Safari is ready")
-            Text("Download a file in Safari or click the MC Download Manager toolbar button to see captured videos. The toolbar button's popup should show “Connected”.")
+            Text("Download a file in Safari or click the iDownload Manager toolbar button to see captured videos. The toolbar button's popup should show “Connected”.")
             statusRow(ok: connected, okText: "Extension has connected to the app", pendingText: "Waiting for the extension to connect (open the popup once)")
         }
     }
@@ -180,7 +180,7 @@ struct ExtensionSetupWizard: View {
             }
         default:
             stepTitle("\(browser.name) is ready")
-            Text("Pin MC Download Manager to the toolbar (puzzle icon ▸ pin). Its popup should show “Connected”. Downloads of the captured file types are now handed to the app.")
+            Text("Pin iDownload Manager to the toolbar (puzzle icon ▸ pin). Its popup should show “Connected”. Downloads of the captured file types are now handed to the app.")
             statusRow(ok: connected, okText: "Extension has connected to the app", pendingText: "Waiting for the extension to connect (it connects right after loading)")
         }
     }
@@ -193,7 +193,7 @@ struct ExtensionSetupWizard: View {
         case 0:
             if BrowserIntegration.signedFirefoxAddon != nil {
                 stepTitle("Add the extension to Firefox")
-                Text("The Firefox add-on is included in the app and signed by Mozilla. Click the button below; Firefox opens and asks “Add MC Download Manager?”. Click “Add”.")
+                Text("The Firefox add-on is included in the app and signed by Mozilla. Click the button below; Firefox opens and asks “Add iDownload Manager?”. Click “Add”.")
                 Button { BrowserIntegration.installFirefoxAddon() } label: {
                     Label("Add to Firefox", systemImage: "puzzlepiece.extension")
                 }
@@ -219,7 +219,7 @@ struct ExtensionSetupWizard: View {
             }
         default:
             stepTitle("Firefox is ready")
-            Text("Pin MC Download Manager to the toolbar (puzzle icon ▸ gear ▸ Pin to Toolbar). Its popup should show “Connected”. Downloads of the captured file types are now handed to the app.")
+            Text("Pin iDownload Manager to the toolbar (puzzle icon ▸ gear ▸ Pin to Toolbar). Its popup should show “Connected”. Downloads of the captured file types are now handed to the app.")
             statusRow(ok: connected, okText: "Extension has connected to the app", pendingText: "Waiting for the extension to connect (it connects right after loading)")
         }
     }

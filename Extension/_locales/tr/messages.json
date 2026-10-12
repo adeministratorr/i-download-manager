@@ -1,12 +1,12 @@
 {
   "extName": {
-    "message": "MC Download Manager"
+    "message": "iDownload Manager"
   },
   "extDesc": {
-    "message": "Tarayıcı indirmelerini MC Download Manager uygulamasına yönlendirir ve sayfalardaki videoları yakalar."
+    "message": "Tarayıcı indirmelerini iDownload Manager uygulamasına yönlendirir ve sayfalardaki videoları yakalar."
   },
   "menuDownloadLink": {
-    "message": "MC Download Manager ile indir"
+    "message": "iDownload Manager ile indir"
   },
   "menuPageVideo": {
     "message": "Bu sayfadaki videoyu indir (yt-dlp)"
@@ -21,7 +21,7 @@
     "message": "Video indirmesi başlatıldı"
   },
   "notifOfflineTitle": {
-    "message": "MC Download Manager çalışmıyor"
+    "message": "iDownload Manager çalışmıyor"
   },
   "notifOfflineBody": {
     "message": "Uygulamayı açın ve tekrar deneyin."
@@ -49,7 +49,7 @@
     "message": "Uygulama kapalı"
   },
   "popupOfflineBox": {
-    "message": "Uygulama çalışmıyor. MC Download Manager uygulamasını açın."
+    "message": "Uygulama çalışmıyor. iDownload Manager uygulamasını açın."
   },
   "popupLaunch": {
     "message": "Uygulamayı Aç"

@@ -10,7 +10,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-APP_NAME="MC Download Manager"
+APP_NAME="iDownload Manager"
 BUILD="$ROOT/build"
 DERIVED="$BUILD/DerivedData"
 EXPORT="$BUILD/release"
@@ -59,7 +59,7 @@ fi
 
 echo "▶ xcodebuild (Release)"
 rm -rf "$EXPORT"
-xcodebuild -project MCDownloadManager.xcodeproj -scheme MCDownloadManager -configuration Release \
+xcodebuild -project iDownloadManager.xcodeproj -scheme iDownloadManager -configuration Release \
   -derivedDataPath "$DERIVED" \
   CONFIGURATION_BUILD_DIR="$EXPORT" \
   CODE_SIGN_IDENTITY="$IDENTITY" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="" \
@@ -72,12 +72,12 @@ APP="$EXPORT/$APP_NAME.app"
 echo "▶ Firefox add-on"
 scripts/pack-firefox.sh
 EXT_VERSION="$(python3 -c "import json;print(json.load(open('Extension/manifest.json'))['version'])")"
-FF_SIGNED="$BUILD/mc-download-manager-firefox-$EXT_VERSION-signed.xpi"
+FF_SIGNED="$BUILD/i-download-manager-firefox-$EXT_VERSION-signed.xpi"
 if [[ -f "$FF_SIGNED" ]]; then
   cp "$FF_SIGNED" "$APP/Contents/Resources/FirefoxExtension.xpi"
 else
   echo "  ⚠︎ bundling the unsigned add-on (Firefox loads it only temporarily)"
-  cp "$BUILD/mc-download-manager-firefox-$EXT_VERSION.xpi" "$APP/Contents/Resources/FirefoxExtension-unsigned.xpi"
+  cp "$BUILD/i-download-manager-firefox-$EXT_VERSION.xpi" "$APP/Contents/Resources/FirefoxExtension-unsigned.xpi"
 fi
 
 echo "▶ Code signing ($IDENTITY)"
@@ -115,25 +115,25 @@ if (( ${#NOTARY_AUTH} )) && [[ "$IDENTITY" != "-" ]]; then
 fi
 
 echo "▶ DMG"
-DMG="$BUILD/$APP_NAME $VERSION.dmg"
+DMG="$BUILD/iDownload-Manager-$VERSION.dmg"
 STAGE="$BUILD/dmg-stage"
 rm -rf "$STAGE" "$DMG"; mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 cat > "$STAGE/README.txt" <<TXT
-MC Download Manager $VERSION
+iDownload Manager $VERSION (fork of MC Download Manager by Mesut Çevik, MIT)
 
-1) Drag "MC Download Manager.app" to the Applications folder.
+1) Drag "iDownload Manager.app" to the Applications folder.
 2) If macOS blocks the first launch: System Settings ▸ Privacy & Security ▸ "Open Anyway".
-3) Safari: Settings ▸ Extensions ▸ enable MC Download Manager.
+3) Safari: Settings ▸ Extensions ▸ enable iDownload Manager.
    Chrome: chrome://extensions ▸ Developer mode ▸ "Load unpacked" ▸ pick the folder shown in
            the app under Settings ▸ Browser ▸ "Show Folder".
    Firefox: Settings ▸ Browser Extensions ▸ "Open Setup Wizard…" ▸ "Add to Firefox".
 
 --- Türkçe ---
-1) "MC Download Manager.app" simgesini Applications klasörüne sürükleyin.
+1) "iDownload Manager.app" simgesini Applications klasörüne sürükleyin.
 2) İlk açılışta macOS uyarı verirse: Sistem Ayarları ▸ Gizlilik ve Güvenlik ▸ "Yine de Aç".
-3) Safari: Ayarlar ▸ Uzantılar ▸ MC Download Manager'ı etkinleştirin.
+3) Safari: Ayarlar ▸ Uzantılar ▸ iDownload Manager'ı etkinleştirin.
    Chrome: chrome://extensions ▸ Geliştirici modu ▸ "Paketlenmemiş öğe yükle" ▸
            uygulama içindeki Ayarlar ▸ Tarayıcı ▸ "Klasörü Göster" ile açılan klasörü seçin.
    Firefox: Ayarlar ▸ Tarayıcı Eklentileri ▸ "Kurulum Sihirbazını Aç…" ▸ "Firefox'a Ekle".

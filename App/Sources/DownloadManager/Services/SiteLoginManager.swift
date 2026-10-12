@@ -19,7 +19,7 @@ final class SiteLoginManager: NSObject, ObservableObject, WKNavigationDelegate {
 
     static var cookieFileURL: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return base.appendingPathComponent("MC Download Manager/cookies/sites.txt")
+        return base.appendingPathComponent("iDownload Manager/cookies/sites.txt")
     }
 
     /// Path of the shared cookie file if it exists.
@@ -116,7 +116,7 @@ final class SiteLoginManager: NSObject, ObservableObject, WKNavigationDelegate {
                 .replacingOccurrences(of: "\n", with: " ")
                 .replacingOccurrences(of: "\r", with: " ")
         }
-        var lines = ["# Netscape HTTP Cookie File", "# Exported by MC Download Manager"]
+        var lines = ["# Netscape HTTP Cookie File", "# Exported by iDownload Manager"]
         for c in cookies {
             let flag = c.domain.hasPrefix(".") ? "TRUE" : "FALSE"
             let secure = c.isSecure ? "TRUE" : "FALSE"
