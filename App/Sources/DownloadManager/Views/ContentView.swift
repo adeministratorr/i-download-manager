@@ -318,7 +318,7 @@ struct StatusCell: View {
         case .failed: return String(localized: "Error: \(item.errorMessage ?? "")")
         case .downloading, .paused, .probing:
             let pct = item.totalBytes > 0 ? "\(Int(item.progress * 100))% " : ""
-            if item.kind == .video, item.state == .downloading, !item.stage.isEmpty { return pct + item.stage }
+            if (item.kind == .video || item.kind == .torrent), item.state == .downloading, !item.stage.isEmpty { return pct + item.stage }
             return pct + item.state.label
         case .cancelled: return String(localized: "Cancelled")
         }
@@ -356,7 +356,8 @@ struct SegmentBar: View {
                 }
                 for s in segments.dropFirst() {
                     let x = CGFloat(s.start) / CGFloat(total) * size.width
-                    ctx.fill(Path(CGRect(x: x, y: 0, width: 1, height: size.height)), with: .color(.white.opacity(0.6)))
+                    // Sabit beyaz koyu modda parlıyor; sistem ayırıcı rengi iki modda da okunur.
+                    ctx.fill(Path(CGRect(x: x, y: 0, width: 1, height: size.height)), with: .color(Color(nsColor: .separatorColor)))
                 }
             }
         }

@@ -31,6 +31,13 @@ final class ClipboardWatcher {
         guard pb.changeCount != lastChangeCount else { return }
         lastChangeCount = pb.changeCount
         guard let text = pb.string(forType: .string) else { return }
+        // Magnet links go straight to the torrent prompt (no file-type matching).
+        if let magnets = Self.magnetOnlyContent(text)?.filter({ !askedURLs.contains($0.absoluteString) }),
+           !magnets.isEmpty {
+            remember(magnets)
+            ask(urls: magnets, source: .clipboard)
+            return
+        }
         // Only react when the clipboard holds nothing but links, and the links point at files of a captured type.
         guard let onlyURLs = Self.urlOnlyContent(text) else { return }
         let exts = settings.captureExtensions
@@ -42,8 +49,13 @@ final class ClipboardWatcher {
         ask(urls: urls, source: .clipboard)
     }
 
-    /// Called from the ⌘V paste command (explicit user action: any http(s) link is accepted).
+    /// Called from the ⌘V paste command (explicit user action: any http(s) link or magnet is accepted).
     func handlePaste(text: String) {
+        if let magnets = Self.magnetOnlyContent(text), !magnets.isEmpty {
+            remember(magnets)
+            ask(urls: magnets, source: .paste)
+            return
+        }
         guard let urls = Self.urlOnlyContent(text), !urls.isEmpty else { return }
         remember(urls)
         ask(urls: urls, source: .paste)
@@ -52,6 +64,19 @@ final class ClipboardWatcher {
     private func remember(_ urls: [URL]) {
         askedURLs.append(contentsOf: urls.map(\.absoluteString))
         if askedURLs.count > 50 { askedURLs.removeFirst(askedURLs.count - 50) }
+    }
+
+    /// Every non-empty line must be a `magnet:` URI; nil otherwise.
+    static func magnetOnlyContent(_ text: String) -> [URL]? {
+        let lines = text.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        guard !lines.isEmpty, lines.count <= 50 else { return nil }
+        var urls: [URL] = []
+        for line in lines {
+            guard !line.contains(" "), let url = URL(string: line),
+                  url.scheme?.lowercased() == "magnet" else { return nil }
+            if !urls.contains(url) { urls.append(url) }
+        }
+        return urls
     }
 
     /// Returns the links if every non-empty line of `text` is a single http(s) URL; nil otherwise.
@@ -106,7 +131,10 @@ final class ClipboardWatcher {
             alert.informativeText = urls.prefix(6).map(\.absoluteString).joined(separator: "\n") + (urls.count > 6 ? "\n…" : "")
         }
         let preferVideo = urls.allSatisfy(Self.looksLikeVideoPage)
-        if preferVideo {
+        let allMagnet = urls.allSatisfy { $0.scheme?.lowercased() == "magnet" }
+        if allMagnet {
+            alert.addButton(withTitle: String(localized: "Download Torrent (aria2)"))
+        } else if preferVideo {
             alert.addButton(withTitle: String(localized: "Download Video (yt-dlp)"))
             alert.addButton(withTitle: String(localized: "Download as File"))
         } else {
@@ -126,14 +154,15 @@ final class ClipboardWatcher {
 
         let kind: DownloadKind?
         switch response {
-        case .alertFirstButtonReturn: kind = preferVideo ? .video : .file
+        case .alertFirstButtonReturn: kind = allMagnet ? .torrent : (preferVideo ? .video : .file)
         case .alertSecondButtonReturn: kind = preferVideo ? .file : .video
         default: kind = nil
         }
         guard let kind else { return }
         for url in urls {
             var r = NewDownloadRequest(url: url)
-            r.kind = kind
+            // Magnet her zaman torrent olarak iner (ikinci buton magnetlerde yok).
+            r.kind = allMagnet ? .torrent : kind
             store.add(r)
         }
     }

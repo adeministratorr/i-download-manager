@@ -13,6 +13,9 @@ final class AppSettings: ObservableObject {
     @Published var bridgeToken: String { didSet { defaults.set(bridgeToken, forKey: "bridgeToken") } }
     @Published var downloadDirectory: String { didSet { defaults.set(downloadDirectory, forKey: "downloadDirectory") } }
     @Published var ytdlpPath: String { didSet { defaults.set(ytdlpPath, forKey: "ytdlpPath") } }
+    @Published var aria2Path: String { didSet { defaults.set(aria2Path, forKey: "aria2Path") } }
+    /// Tamamlanan torrenti tohumlama süresi (dakika, 0 = bitince çık).
+    @Published var torrentSeedMinutes: Int { didSet { defaults.set(torrentSeedMinutes, forKey: "torrentSeedMinutes") } }
     @Published var videoFormat: String { didSet { defaults.set(videoFormat, forKey: "videoFormat") } }   // custom -f (overrides pickers when non-empty)
     @Published var videoContainer: String { didSet { defaults.set(videoContainer, forKey: "videoContainer") } } // mp4 | mkv | webm | original
     @Published var videoMaxHeight: Int { didSet { defaults.set(videoMaxHeight, forKey: "videoMaxHeight") } }   // 0 = best, -1 = audio m4a, -2 = audio mp3
@@ -62,6 +65,8 @@ final class AppSettings: ObservableObject {
         }
         downloadDirectory = defaults.string(forKey: "downloadDirectory") ?? Self.defaultDownloadDir
         ytdlpPath = defaults.string(forKey: "ytdlpPath") ?? ""
+        aria2Path = defaults.string(forKey: "aria2Path") ?? ""
+        torrentSeedMinutes = defaults.object(forKey: "torrentSeedMinutes") as? Int ?? 0
         videoFormat = defaults.string(forKey: "videoFormat") ?? ""
         videoContainer = defaults.string(forKey: "videoContainer") ?? "mp4"
         videoMaxHeight = defaults.object(forKey: "videoMaxHeight") as? Int ?? 1080

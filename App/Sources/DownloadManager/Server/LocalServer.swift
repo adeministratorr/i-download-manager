@@ -87,7 +87,9 @@ final class LocalServer {
             guard let c = l.firstIndex(of: ":") else { continue }
             headers[l[..<c].lowercased()] = l[l.index(after: c)...].trimmingCharacters(in: .whitespaces)
         }
-        let length = Int(headers["content-length"] ?? "0") ?? 0
+        // Negatif değer geçersiz Range üretip subdata'yı trap ettirir; token kontrolünden
+        // önce parse olduğundan herhangi bir yerel süreç bununla uygulamayı çökertebilir.
+        let length = max(0, Int(headers["content-length"] ?? "0") ?? 0)
         let bodyStart = headerEnd.upperBound
         guard data.endIndex - bodyStart >= length else { return nil }
         let body = data.subdata(in: bodyStart..<(bodyStart + length))

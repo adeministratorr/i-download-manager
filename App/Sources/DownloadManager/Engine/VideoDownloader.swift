@@ -114,18 +114,35 @@ enum VideoDownloader {
         let err = Pipe()
         p.standardOutput = out
         p.standardError = err
+
+        // Pipe buffer'ı 64 KB'dır; ~150 video üzeri flat-playlist JSON'ları bunu aşar.
+        // Çocuk yazamayıp bloklanır, waitUntilExit asla dönmez ve 60 sn'lik killer
+        // süreci öldürürdü. Akışları bekleme sırasında eşzamanlı boşalt.
+        var outData = Data()
+        var errData = Data()
+        let io = DispatchGroup()
+        io.enter(); io.enter()
+        DispatchQueue.global().async {
+            outData = out.fileHandleForReading.readDataToEndOfFile()
+            io.leave()
+        }
+        DispatchQueue.global().async {
+            errData = err.fileHandleForReading.readDataToEndOfFile()
+            io.leave()
+        }
+
         try p.run()
         // Basit timeout: süre dolarsa öldür.
         let killer = DispatchWorkItem { if p.isRunning { p.terminate() } }
         DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: killer)
         p.waitUntilExit()
         killer.cancel()
+        io.wait()
         guard p.terminationStatus == 0 else {
-            let edata = err.fileHandleForReading.readDataToEndOfFile()
-            let msg = String(data: edata, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let msg = String(data: errData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
             throw DownloadFailure(message: msg?.isEmpty == false ? msg! : String(localized: "yt-dlp could not read the playlist (exit \(p.terminationStatus))"))
         }
-        let data = out.fileHandleForReading.readDataToEndOfFile()
+        let data = outData
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw DownloadFailure(message: String(localized: "Playlist could not be parsed."))
         }
@@ -186,21 +203,23 @@ enum VideoDownloader {
         return SiteLoginManager.shared.domains.contains { host == $0 || host.hasSuffix("." + $0) }
     }
 
-    static func mergedCookieFile(itemCookies: String?, targetHost: String?) -> String? {
+    /// Birleştirme yalnızca iki jar da varsa geçici dosya üretir; `temporary` işaretli
+    /// yol süreç sonlandığında silinmelidir (oturum cookie'leri tmp'de kalmasın).
+    static func mergedCookieFile(itemCookies: String?, targetHost: String?) -> (path: String, temporary: Bool)? {
         let item = itemCookies.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }
         let host = targetHost?.lowercased() ?? ""
         let siteMatches = SiteLoginManager.shared.domains.contains { host == $0 || host.hasSuffix("." + $0) }
         let site = siteMatches ? SiteLoginManager.cookieFilePath : nil
         switch (item, site) {
         case (nil, nil): return nil
-        case (let a?, nil): return a
-        case (nil, let b?): return b
+        case (let a?, nil): return (a, false)
+        case (nil, let b?): return (b, false)
         case (let a?, let b?):
             let body = ((try? String(contentsOfFile: b, encoding: .utf8)) ?? "") + "\n" + ((try? String(contentsOfFile: a, encoding: .utf8)) ?? "")
             let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("mcdm-cookies-\(UUID().uuidString).txt")
-            guard (try? body.write(to: tmp, atomically: true, encoding: .utf8)) != nil else { return a }
+            guard (try? body.write(to: tmp, atomically: true, encoding: .utf8)) != nil else { return (a, false) }
             try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tmp.path)
-            return tmp.path
+            return (tmp.path, true)
         }
     }
 
@@ -268,7 +287,11 @@ enum VideoDownloader {
         if let ff = locateFfmpeg() { args += ["--ffmpeg-location", ff] }
         if let ua = headers["User-Agent"], !ua.isEmpty { args += ["--user-agent", ua] }
         if let ref = headers["Referer"], !ref.isEmpty { args += ["--referer", ref] }
-        if useCookies, let cf = mergedCookieFile(itemCookies: cookieFile, targetHost: url.host) { args += ["--cookies", cf] }
+        var tmpCookiePath: String? = nil
+        if useCookies, let cf = mergedCookieFile(itemCookies: cookieFile, targetHost: url.host) {
+            args += ["--cookies", cf.path]
+            if cf.temporary { tmpCookiePath = cf.path }
+        }
         if let deno = locateDeno() { args += ["--js-runtimes", "deno:" + deno] }
         args.append(url.absoluteString)
         p.arguments = args
@@ -341,6 +364,8 @@ enum VideoDownloader {
             let path = finalPath
             let errText = lastError
             lock.unlock()
+            // Birleştirilmiş cookie jar'ı geçiciyse süreç bittiğinde sil.
+            if let t = tmpCookiePath { try? FileManager.default.removeItem(atPath: t) }
             if proc.terminationStatus == 0 {
                 onFinish(.success(path))
             } else {

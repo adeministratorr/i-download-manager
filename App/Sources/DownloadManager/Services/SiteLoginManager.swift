@@ -110,12 +110,18 @@ final class SiteLoginManager: NSObject, ObservableObject, WKNavigationDelegate {
     }
 
     private func write(cookies: [HTTPCookie]) {
+        // Netscape formatı sekme/newline ile bozulmasın diye kontrol karakterlerini temizle.
+        func clean(_ s: String) -> String {
+            s.replacingOccurrences(of: "\t", with: " ")
+                .replacingOccurrences(of: "\n", with: " ")
+                .replacingOccurrences(of: "\r", with: " ")
+        }
         var lines = ["# Netscape HTTP Cookie File", "# Exported by MC Download Manager"]
         for c in cookies {
             let flag = c.domain.hasPrefix(".") ? "TRUE" : "FALSE"
             let secure = c.isSecure ? "TRUE" : "FALSE"
             let exp = Int64(c.expiresDate?.timeIntervalSince1970 ?? 0)
-            lines.append([c.domain, flag, c.path, secure, String(exp), c.name, c.value].joined(separator: "\t"))
+            lines.append([clean(c.domain), flag, clean(c.path), secure, String(exp), clean(c.name), clean(c.value)].joined(separator: "\t"))
         }
         let url = Self.cookieFileURL
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		05443FB97D1F5CE38328B6C6 /* popup.html in Resources */ = {isa = PBXBuildFile; fileRef = 9A3FF3731D800D3C74501F5F /* popup.html */; };
 		07792A4DCF88CF4FB361FDAD /* DownloadStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA232EBC90C29DD738F1E3E /* DownloadStore.swift */; };
+		0AE1D7541CC35B5B58E81AAA /* TorrentDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA36BFE8A7530FBFCFE0F650 /* TorrentDownloader.swift */; };
 		151B1283A95CE6C3744174FF /* SegmentedDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDA15CED2682BF59E18C3E09 /* SegmentedDownloader.swift */; };
 		194CA2E24934630B92414AA3 /* VideoDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B96EDDD486AAAA976EDFCDA /* VideoDownloader.swift */; };
 		1F58598C85BFBB7365AD168B /* popup.css in Resources */ = {isa = PBXBuildFile; fileRef = 59CEC5EB1D2E01C02E4ACE29 /* popup.css */; };
@@ -132,6 +133,7 @@
 		F030B7DDEA243129E7D6EEB2 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		F6DBC764000EE3129062C866 /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
 		F80F32ABE9D8C54ABFAABB01 /* CaptureTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureTypes.swift; sourceTree = "<group>"; };
+		FA36BFE8A7530FBFCFE0F650 /* TorrentDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TorrentDownloader.swift; sourceTree = "<group>"; };
 		FFA232EBC90C29DD738F1E3E /* DownloadStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -282,6 +284,7 @@
 				3D4A145EDA69E7881715BDBD /* FileHash.swift */,
 				C27776A9EE916509A3DED276 /* NetGuard.swift */,
 				CDA15CED2682BF59E18C3E09 /* SegmentedDownloader.swift */,
+				FA36BFE8A7530FBFCFE0F650 /* TorrentDownloader.swift */,
 				5B96EDDD486AAAA976EDFCDA /* VideoDownloader.swift */,
 			);
 			path = Engine;
@@ -479,6 +482,7 @@
 				4ABFFD403AF2BD3F56116B71 /* SettingsView.swift in Sources */,
 				40DC3F42550855345276FA94 /* SiteLoginManager.swift in Sources */,
 				EA0BD54DF6C5AE59D386CDBB /* ToolInstaller.swift in Sources */,
+				0AE1D7541CC35B5B58E81AAA /* TorrentDownloader.swift in Sources */,
 				4F8297DE8356AAF844B0E183 /* UpdateChecker.swift in Sources */,
 				194CA2E24934630B92414AA3 /* VideoDownloader.swift in Sources */,
 				D9ECABE0BFCE0514E59109C3 /* main.swift in Sources */,

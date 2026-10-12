@@ -123,7 +123,20 @@ final class ServerController: ObservableObject {
     private func tokenValid(_ req: HTTPRequest) -> Bool {
         guard !settings.bridgeToken.isEmpty else { return false }
         guard let got = req.headers["x-mcdm-token"], !got.isEmpty else { return false }
-        return got == settings.bridgeToken
+        return Self.constantTimeEquals(got, settings.bridgeToken)
+    }
+
+    /// Karşılaştırma uzunluk/sembol zamanlaması sızdırmaz; yerel bir süreç
+    /// yan-kanal ile anahtarı tahmin etmeye çalışsa bilgi edinemez.
+    static func constantTimeEquals(_ a: String, _ b: String) -> Bool {
+        let ab = Array(a.utf8), bb = Array(b.utf8)
+        var diff = UInt8(ab.count == bb.count ? 0 : 1)
+        for i in 0..<max(ab.count, bb.count) {
+            let x = i < ab.count ? ab[i] : 0
+            let y = i < bb.count ? bb[i] : 0
+            diff |= x ^ y
+        }
+        return diff == 0
     }
 
     private func hostAllowed(_ host: String?) -> Bool {
@@ -178,11 +191,18 @@ final class ServerController: ObservableObject {
             guard let obj = (try? JSONSerialization.jsonObject(with: req.body)) as? [String: Any],
                   let urlStr = obj["url"] as? String,
                   let url = URL(string: urlStr),
-                  let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme) else {
+                  let scheme = url.scheme?.lowercased() else {
+                return .json(["ok": false, "error": "invalid url"], status: 400)
+            }
+            let kindStr = obj["kind"] as? String
+            let isMagnet = scheme == "magnet"
+            // Magnet yalnızca torrent türüyle kabul edilir; onun dışında http(s) şart.
+            guard ["http", "https"].contains(scheme) || (isMagnet && kindStr == "torrent") else {
                 return .json(["ok": false, "error": "invalid url"], status: 400)
             }
             // SSRF: loopback/link-local/bulut metadata hedefleri köprüden indirilemez.
-            guard !NetGuard.isBlockedDownloadURL(url) else {
+            // Magnet'in host'u yoktur, kontrole girmez.
+            if !isMagnet, NetGuard.isBlockedDownloadURL(url) {
                 return .json(["ok": false, "error": "blocked host"], status: 403)
             }
             var r = NewDownloadRequest(url: url)
@@ -191,7 +211,7 @@ final class ServerController: ObservableObject {
             r.userAgent = obj["userAgent"] as? String
             r.cookieHeader = obj["cookieHeader"] as? String
             r.cookies = obj["cookies"] as? [[String: Any]]
-            r.kind = (obj["kind"] as? String) == "video" ? .video : .file
+            r.kind = kindStr == "video" ? .video : (kindStr == "torrent" ? .torrent : .file)
             if let h = obj["headers"] as? [String: String] { r.extraHeaders = NetGuard.sanitizedExtraHeaders(h) }
             if let s = obj["segments"] as? Int { r.segments = min(16, max(1, s)) }
             if let hexpected = obj["expectedHash"] as? String, !hexpected.isEmpty {

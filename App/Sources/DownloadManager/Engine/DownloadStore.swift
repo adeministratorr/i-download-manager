@@ -31,6 +31,9 @@ final class DownloadStore: ObservableObject {
     let settings: AppSettings
     private var downloaders: [UUID: SegmentedDownloader] = [:]
     private var videoProcesses: [UUID: Process] = [:]
+    private var torrentProcesses: [UUID: Process] = [:]
+    /// .torrent dosyasını önce HTTP ile çeken öğeler (iki aşamalı torrent başlangıcı).
+    private var torrentFetching: Set<UUID> = []
     /// yt-dlp downloads several files (video, audio): bytes completed in earlier phases + approx total.
     private var videoPhase: [UUID: (base: Int64, lastDownloaded: Int64, approxTotal: Int64)] = [:]
     /// YouTube downloads waiting for the deno install prompt / install to finish.
@@ -110,6 +113,9 @@ final class DownloadStore: ObservableObject {
 
         var name = req.fileName.flatMap { $0.isEmpty ? nil : $0 } ?? Self.fileName(from: req.url)
         if req.kind == .video { name = req.url.host ?? "video" }
+        if req.kind == .torrent, TorrentDownloader.isMagnet(req.url) {
+            name = TorrentDownloader.displayName(from: req.url) ?? "magnet link"
+        }
         name = Self.sanitize(name)
 
         var item = DownloadItem(url: req.url, fileName: name,
@@ -143,7 +149,11 @@ final class DownloadStore: ObservableObject {
     func addURLs(_ text: String, kind: DownloadKind, segments: Int? = nil, expectedHash: String? = nil, hashAlgorithm: HashAlgorithm? = nil, asPlaylist: Bool = false) {
         for line in text.split(whereSeparator: \.isNewline) {
             let s = line.trimmingCharacters(in: .whitespaces)
-            guard let url = URL(string: s), let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme) else { continue }
+            guard let url = URL(string: s), let scheme = url.scheme?.lowercased() else { continue }
+            let isMagnet = scheme == "magnet"
+            // Magnet yalnızca torrent türüyle kabul edilir; torrent http(s) .torrent
+            // bağlantılarını da kabul eder.
+            guard ["http", "https"].contains(scheme) || (isMagnet && kind == .torrent) else { continue }
             if asPlaylist, kind == .video {
                 addPlaylist(url: url, referer: nil, userAgent: nil, cookies: nil)
             } else {
@@ -270,7 +280,9 @@ final class DownloadStore: ObservableObject {
     private func startItem(_ id: UUID) {
         guard let i = index(of: id) else { return }
         let item = items[i]
-        if item.kind == .video { startVideo(item) } else { startFile(item) }
+        if item.kind == .video { startVideo(item) }
+        else if item.kind == .torrent { startTorrent(item) }
+        else { startFile(item) }
     }
 
     private func startFile(_ item: DownloadItem) {
@@ -508,6 +520,180 @@ final class DownloadStore: ObservableObject {
         pumpQueue()
     }
 
+    // MARK: - Torrent (aria2c)
+
+    private func torrentMetaURL(for id: UUID) -> URL {
+        supportDir.appendingPathComponent("torrent-meta", isDirectory: true)
+            .appendingPathComponent(".t-\(id.uuidString).torrent")
+    }
+
+    private func startTorrent(_ item: DownloadItem) {
+        let id = item.id
+        guard let exe = TorrentDownloader.locateAria2(custom: settings.aria2Path) else {
+            update(id) {
+                $0.state = .failed
+                $0.errorMessage = String(localized: "aria2c not found. Install it with “brew install aria2” or set a custom path in Settings ▸ Torrent.")
+            }
+            pumpQueue()
+            return
+        }
+        // http(s) .torrent bağlantısı: önce .torrent dosyasını çek, sonra aria2'ye ver.
+        if !TorrentDownloader.isMagnet(item.url) {
+            update(id) {
+                $0.state = .downloading; $0.errorMessage = nil; $0.receivedBytes = 0; $0.speed = 0; $0.totalBytes = -1
+                $0.stage = String(localized: "Fetching .torrent file…")
+            }
+            let meta = torrentMetaURL(for: id)
+            try? FileManager.default.createDirectory(at: meta.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let cfg = SegmentedDownloader.Configuration(
+                url: item.url, headers: item.headers, partURL: meta, segmentCount: 1)
+            let dl = SegmentedDownloader(configuration: cfg)
+            torrentFetching.insert(id)
+            dl.onProgress = { [weak self, weak dl] received, _ in
+                DispatchQueue.main.async {
+                    guard let self, self.downloaders[id] === dl else { return }
+                    self.update(id) { $0.receivedBytes = received }
+                }
+            }
+            dl.onFinish = { [weak self, weak dl] result in
+                DispatchQueue.main.async {
+                    guard let self, self.downloaders[id] === dl else { return }
+                    self.downloaders[id] = nil
+                    self.torrentFetching.remove(id)
+                    switch result {
+                    case .failure(let e):
+                        self.update(id) {
+                            guard $0.state == .downloading else { return }
+                            $0.state = .failed; $0.errorMessage = e.localizedDescription; $0.speed = 0
+                        }
+                        self.scheduleSave()
+                        self.pumpQueue()
+                    case .success:
+                        self.launchTorrentAria2(id: id, exe: exe, target: meta.path)
+                    }
+                }
+            }
+            downloaders[id] = dl
+            dl.start()
+            return
+        }
+        launchTorrentAria2(id: id, exe: exe, target: item.url.absoluteString)
+    }
+
+    private func launchTorrentAria2(id: UUID, exe: String, target: String) {
+        guard let i = index(of: id) else { return }
+        let item = items[i]
+        guard item.state == .downloading || item.state == .queued else { return }
+        let outDir = destinationDirectory(for: item)
+        try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+        update(id) {
+            $0.state = .downloading; $0.errorMessage = nil; $0.speed = 0
+            $0.stage = String(localized: "Waiting for peers…")
+        }
+        let proc = TorrentDownloader.run(
+            executable: exe, target: target, outputDir: outDir,
+            seedMinutes: settings.torrentSeedMinutes,
+            onProgress: { [weak self] p in
+                DispatchQueue.main.async {
+                    self?.update(id) {
+                        $0.receivedBytes = p.downloaded
+                        $0.totalBytes = max($0.totalBytes, p.total, p.downloaded)
+                        $0.speed = p.speed
+                        $0.stage = TorrentDownloader.stage(for: p, finished: false)
+                    }
+                }
+            },
+            onLine: { [weak self] line in
+                DispatchQueue.main.async {
+                    self?.update(id) {
+                        $0.log = String(($0.log + line + "\n").suffix(6000))
+                    }
+                }
+            },
+            onFinish: { [weak self] result in
+                DispatchQueue.main.async { self?.handleTorrentFinish(id: id, result) }
+            })
+        torrentProcesses[id] = proc
+    }
+
+    private func handleTorrentFinish(id: UUID, _ result: Result<[String], Error>) {
+        torrentProcesses[id] = nil
+        guard let i = index(of: id) else { return }
+        var item = items[i]
+        guard item.state == .downloading else { return }   // kullanıcı duraklattı/iptal etti
+        switch result {
+        case .success(let paths):
+            guard let first = paths.first else {
+                item.state = .failed
+                item.errorMessage = String(localized: "Torrent finished but produced no files.")
+                item.speed = 0
+                items[i] = item
+                scheduleSave()
+                pumpQueue()
+                return
+            }
+            let finalURL = URL(fileURLWithPath: first)
+            Self.applyQuarantineRecursively(to: finalURL, source: item.url)
+            item.finalPath = first
+            item.fileName = finalURL.lastPathComponent
+            item.state = .completed
+            item.completedAt = Date()
+            item.speed = 0
+            let size = Self.diskSize(of: finalURL)
+            if size > 0 { item.totalBytes = size; item.receivedBytes = size }
+            else if item.totalBytes > 0 { item.receivedBytes = item.totalBytes }
+            items[i] = item
+            notifyCompleted(item)
+            DetailWindowManager.shared.didComplete(id: id, autoClose: settings.autoCloseDetail)
+            // Klasör (çok dosyalı torrent) hash'lenemez; tek dosyada ISO kontrolü çalışır.
+            if item.expectedHash != nil, !isDirectory(path: first) { verifyHash(id) }
+        case .failure(let e):
+            item.state = .failed
+            item.errorMessage = e.localizedDescription
+            item.speed = 0
+            items[i] = item
+        }
+        scheduleSave()
+        pumpQueue()
+    }
+
+    private func isDirectory(path: String) -> Bool {
+        (try? URL(fileURLWithPath: path).resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+    }
+
+    static func applyQuarantineRecursively(to url: URL, source: URL) {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else { return }
+        if isDir.boolValue,
+           let en = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.isRegularFileKey]) {
+            for case let f as URL in en {
+                guard let vals = try? f.resourceValues(forKeys: [.isRegularFileKey]),
+                      vals.isRegularFile == true else { continue }
+                applyQuarantine(to: f, source: source)
+            }
+        }
+        applyQuarantine(to: url, source: source)
+    }
+
+    /// Dosya/klasör boyutu (`.aria2` kontrol artıkları hariç).
+    static func diskSize(of url: URL) -> Int64 {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else { return 0 }
+        if !isDir.boolValue {
+            return (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? Int64 ?? 0
+        }
+        var total: Int64 = 0
+        if let en = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey]) {
+            for case let f as URL in en {
+                guard let vals = try? f.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]),
+                      vals.isRegularFile == true, let s = vals.fileSize else { continue }
+                if f.lastPathComponent.hasSuffix(".aria2") { continue }
+                total += Int64(s)
+            }
+        }
+        return total
+    }
+
     /// Asks once whether to install deno, which yt-dlp needs for YouTube, then starts the waiting downloads.
     private func promptForDeno() {
         let alert = NSAlert()
@@ -558,6 +744,8 @@ final class DownloadStore: ObservableObject {
         update(id) { $0.state = .paused; $0.speed = 0 }
         downloaders[id]?.stop()
         if let p = videoProcesses.removeValue(forKey: id) { p.terminate() }
+        if let p = torrentProcesses.removeValue(forKey: id) { p.terminate() }
+        torrentFetching.remove(id)
         scheduleSave()
         pumpQueue()
     }
@@ -574,7 +762,12 @@ final class DownloadStore: ObservableObject {
         let item = items[i]
         if let dl = downloaders.removeValue(forKey: id) { dl.stop() }
         if let p = videoProcesses.removeValue(forKey: id) { p.terminate() }
+        if let p = torrentProcesses.removeValue(forKey: id) { p.terminate() }
+        torrentFetching.remove(id)
         try? FileManager.default.removeItem(at: item.partURL)
+        try? FileManager.default.removeItem(at: torrentMetaURL(for: id))
+        // Not: yarım torrent verisi durur (aynı torrent yeniden eklenirse kaldığı
+        // yerden devam eder); hangi dosyaların bize ait olduğu bilinmeden silmek riskli.
         update(id) { $0.state = .cancelled; $0.speed = 0; $0.receivedBytes = 0; $0.segments = [] }
         scheduleSave()
         pumpQueue()
@@ -585,7 +778,10 @@ final class DownloadStore: ObservableObject {
         let item = items[i]
         if let dl = downloaders.removeValue(forKey: id) { dl.stop() }
         if let p = videoProcesses.removeValue(forKey: id) { p.terminate() }
+        if let p = torrentProcesses.removeValue(forKey: id) { p.terminate() }
+        torrentFetching.remove(id)
         try? FileManager.default.removeItem(at: item.partURL)
+        try? FileManager.default.removeItem(at: torrentMetaURL(for: id))
         if let cf = item.cookieFile { try? FileManager.default.removeItem(atPath: cf) }
         if deleteFile, let fp = item.finalPath, FileManager.default.fileExists(atPath: fp) {
             // Always move to Trash so the user can recover the file.
@@ -708,7 +904,7 @@ final class DownloadStore: ObservableObject {
     private func tick() {
         let now = Date()
         var activeIDs = Set<UUID>()
-        for i in items.indices where items[i].state == .downloading && items[i].kind != .video {
+        for i in items.indices where items[i].state == .downloading && items[i].kind == .file {
             let id = items[i].id
             activeIDs.insert(id)
             let bytes = items[i].receivedBytes
@@ -738,6 +934,7 @@ final class DownloadStore: ObservableObject {
         }
         items = arr
         cleanupOrphanParts()
+        cleanupOrphanCookies()
     }
 
     /// Listede olmayan indirmelerden kalan `.dm-<id>.part` dosyalarını siler.
@@ -747,6 +944,19 @@ final class DownloadStore: ObservableObject {
         let known = Set(items.map { ".dm-\($0.id.uuidString).part" })
         for n in names where n.hasPrefix(".dm-") && n.hasSuffix(".part") && !known.contains(n) {
             try? FileManager.default.removeItem(at: dir.appendingPathComponent(n))
+        }
+    }
+
+    /// Çökme/kaldırma sonrası listede olmayan indirmelere ait cookie dosyalarını siler
+    /// (oturum cookie'leri diskte kalmasın). Site-login jar'ı (`sites.txt`) dokunulmaz.
+    private func cleanupOrphanCookies() {
+        let dir = supportDir.appendingPathComponent("cookies", isDirectory: true)
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
+        let known = Set(items.map { $0.id.uuidString + ".txt" })
+        for n in names where n.hasSuffix(".txt") && n != "sites.txt" && !known.contains(n) {
+            if UUID(uuidString: (n as NSString).deletingPathExtension) != nil {
+                try? FileManager.default.removeItem(at: dir.appendingPathComponent(n))
+            }
         }
     }
 

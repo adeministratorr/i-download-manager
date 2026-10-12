@@ -12,6 +12,7 @@ struct SettingsView: View {
             FileTypesSettings().tabItem { Label("File Types", systemImage: "doc.badge.gearshape") }
             BrowserSettings().tabItem { Label("Browser Extensions", systemImage: "puzzlepiece.extension") }
             VideoSettings().tabItem { Label("Video", systemImage: "film") }
+            TorrentSettings().tabItem { Label("Torrent", systemImage: "magnet") }
         }
         .frame(width: 600, height: 520)
     }
@@ -339,5 +340,59 @@ struct VideoSettings: View {
         p.canChooseDirectories = false
         p.showsHiddenFiles = true
         if p.runModal() == .OK, let u = p.url { settings.ytdlpPath = u.path }
+    }
+}
+
+// MARK: - Torrent
+
+struct TorrentSettings: View {
+    @EnvironmentObject var settings: AppSettings
+
+    var body: some View {
+        Form {
+            Section("aria2c") {
+                HStack {
+                    if let found = TorrentDownloader.locateAria2(custom: settings.aria2Path) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("aria2c")
+                            Text(found).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        }
+                    } else {
+                        Text("aria2c not found").foregroundStyle(.red)
+                    }
+                    Spacer()
+                    Button("Copy install command") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString("brew install aria2", forType: .string)
+                    }
+                }
+                Text("Torrent downloads run on aria2c. Install it with “brew install aria2” (then relaunch the app), or point to a custom binary below.")
+                    .font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    TextField("Custom aria2c path (empty = auto-detect)", text: $settings.aria2Path)
+                    Button("Choose…") { chooseAria2() }
+                }
+            }
+            Section("Seeding") {
+                Stepper(value: $settings.torrentSeedMinutes, in: 0...4320) {
+                    if settings.torrentSeedMinutes == 0 {
+                        Text("Seed time after completion: none (stop immediately)")
+                    } else {
+                        Text("Seed time after completion: \(settings.torrentSeedMinutes) min")
+                    }
+                }
+                Text("Pieces are hash-checked by aria2 while downloading. Pause keeps resume data; resume continues where it stopped.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private func chooseAria2() {
+        let p = NSOpenPanel()
+        p.canChooseFiles = true
+        p.canChooseDirectories = false
+        p.showsHiddenFiles = true
+        if p.runModal() == .OK, let u = p.url { settings.aria2Path = u.path }
     }
 }

@@ -6,7 +6,7 @@ struct AddDownloadView: View {
     @EnvironmentObject var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
-    @State private var asVideo = false
+    @State private var kind: DownloadKind = .file
     @State private var segments = 0
     @State private var expectedHash = ""
     @State private var hashAlgorithm: HashAlgorithm = .sha256
@@ -21,8 +21,14 @@ struct AddDownloadView: View {
                 .font(.system(.body, design: .monospaced))
                 .frame(height: 110)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
-            Toggle("Download video from page (yt-dlp)", isOn: $asVideo)
-            if asVideo {
+            Picker("Type", selection: $kind) {
+                Text("File").tag(DownloadKind.file)
+                Text("Video (yt-dlp)").tag(DownloadKind.video)
+                Text("Torrent (aria2)").tag(DownloadKind.torrent)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: kind) { _ in hashError = nil }
+            if kind == .video {
                 Toggle("Playlist: list all videos and download each (same quality)", isOn: $asPlaylist)
                     .font(.callout)
                 if asPlaylist {
@@ -30,7 +36,11 @@ struct AddDownloadView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            if !asVideo {
+            if kind == .torrent {
+                Text("Magnet links and .torrent files. Needs aria2c (Settings ▸ Torrent). Seeding stops per your setting.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if kind == .file {
                 Stepper(value: $segments, in: 0...16) {
                     if segments == 0 {
                         Text("Connections: default (\(settings.segmentCount))")
@@ -39,7 +49,8 @@ struct AddDownloadView: View {
                     }
                 }
             }
-            DisclosureGroup("Expected hash (optional, e.g. ISO SHA-256)") {
+            if kind != .video {
+                DisclosureGroup("Expected hash (optional, e.g. ISO SHA-256)") {
                 VStack(alignment: .leading, spacing: 8) {
                     Picker("Algorithm", selection: $hashAlgorithm) {
                         ForEach(HashAlgorithm.allCases, id: \.self) { algo in
@@ -61,6 +72,7 @@ struct AddDownloadView: View {
                 .padding(.top, 4)
             }
             .font(.callout)
+            }
             HStack {
                 Button("Paste from Clipboard") {
                     if let s = NSPasteboard.general.string(forType: .string) { text = s }
@@ -68,14 +80,19 @@ struct AddDownloadView: View {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Download") {
-                    if asVideo, asPlaylist {
+                    if kind == .video, asPlaylist {
                         store.addURLs(text, kind: .video, asPlaylist: true)
+                        dismiss()
+                        return
+                    }
+                    if kind == .torrent {
+                        store.addURLs(text, kind: .torrent)
                         dismiss()
                         return
                     }
                     let trimmed = expectedHash.trimmingCharacters(in: .whitespacesAndNewlines)
                     if trimmed.isEmpty {
-                        store.addURLs(text, kind: asVideo ? .video : .file, segments: segments == 0 ? nil : segments)
+                        store.addURLs(text, kind: kind, segments: segments == 0 ? nil : segments)
                         dismiss()
                     } else {
                         let norm = HashAlgorithm.normalize(trimmed)
@@ -91,7 +108,7 @@ struct AddDownloadView: View {
                             hashError = String(localized: "\(hashAlgorithm.displayName) must be \(hashAlgorithm.hexLength) hex characters (got \(norm.count)).")
                             return
                         }
-                        store.addURLs(text, kind: asVideo ? .video : .file,
+                        store.addURLs(text, kind: kind,
                                       segments: segments == 0 ? nil : segments,
                                       expectedHash: norm, hashAlgorithm: hashAlgorithm)
                         dismiss()
@@ -105,8 +122,9 @@ struct AddDownloadView: View {
         .frame(width: 520)
         .onAppear {
             if let s = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines),
-               s.hasPrefix("http"), !s.contains("\n") {
+               (s.hasPrefix("http") || s.lowercased().hasPrefix("magnet:")), !s.contains("\n") {
                 text = s
+                if s.lowercased().hasPrefix("magnet:") { kind = .torrent }
             }
         }
     }

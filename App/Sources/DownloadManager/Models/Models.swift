@@ -3,12 +3,26 @@ import Foundation
 enum DownloadKind: String, Codable {
     case file
     case video
+    case torrent
 }
 
 enum DownloadState: String, Codable {
     case queued, probing, downloading, paused, completed, failed, cancelled
 
     var isActive: Bool { self == .probing || self == .downloading }
+
+    /// Kuyruk akışına göre anlamlı sıralama düzeni (aktif → bekleme → hata → bitmiş).
+    var sortRank: Int {
+        switch self {
+        case .downloading: return 0
+        case .probing: return 1
+        case .queued: return 2
+        case .paused: return 3
+        case .failed: return 4
+        case .completed: return 5
+        case .cancelled: return 6
+        }
+    }
 
     var label: String {
         switch self {
@@ -244,6 +258,7 @@ enum FileCategory: String, CaseIterable, Identifiable, Codable {
 
     static func detect(fileName: String, kind: DownloadKind) -> FileCategory {
         if kind == .video { return .video }
+        // Torrent: bitince gerçek dosya adına göre kategorize olur; öncesinde uzantıya bak.
         let ext = (fileName as NSString).pathExtension.lowercased()
         guard !ext.isEmpty else { return .other }
         for (cat, exts) in table where exts.contains(ext) { return cat }
@@ -254,4 +269,6 @@ enum FileCategory: String, CaseIterable, Identifiable, Codable {
 extension DownloadItem {
     var category: FileCategory { FileCategory.detect(fileName: fileName, kind: kind) }
     var isFinished: Bool { state == .completed }
+    /// Tabloda durum kolonunu alfabetik rawValue yerine mantıksal akış sırasına göre sıralar.
+    var stateRank: Int { state.sortRank }
 }

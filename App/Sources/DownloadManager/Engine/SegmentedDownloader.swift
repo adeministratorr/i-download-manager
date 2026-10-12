@@ -84,6 +84,14 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
 
     func start() {
         delegateQueue.addOperation { [self] in
+            // Sayısal olmayan host'lar için çözümleme tabanlı SSRF kontrolü: adı loopback/
+            // link-local'e çözen (DNS rebinding) hedefler string kontrolünden kaçardı.
+            // Bu kuyruk arka planda çalıştığı için bloklayan getaddrinfo burada güvenli.
+            if let host = config.url.host, !host.isEmpty,
+               NetGuard.resolvesToBlockedAddress(host) {
+                fail(DownloadFailure(message: String(localized: "Blocked host")))
+                return
+            }
             // Bozuk resume durumunu ele: sınır dışı segmentler sessizce bozuk dosya üretirdi.
             let boundsOK = !config.resumeSegments.isEmpty
                 && config.resumeSegments.allSatisfy {
@@ -439,9 +447,16 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
                 completionHandler(.cancel)
                 segmentTasks[dataTask.taskIdentifier] = nil
                 throttle(segment: entry.index, status: http.statusCode)
-            case 404, 416 where !config.resumeSegments.isEmpty && !freshRetried:
+            case 404, 416:
                 // Bayat resume (sunucuda dosya değişti/küçüldü): artığı silip bir kez taze dene.
-                // Eskiden bu durum kalıcı fail döngüsüne girerdi.
+                // Eskiden bu durum kalıcı fail döngüsüne girerdi. Resume ile ilgisizse
+                // anında fail (koşul case etiketinde değil burada; `where` çok desenli
+                // case'lerde yalnızca son desene uygulanır, 404 koşulsuz eşleşirdi).
+                guard !config.resumeSegments.isEmpty && !freshRetried else {
+                    completionHandler(.cancel)
+                    fail(HTTPStatusError(status: http.statusCode))
+                    return
+                }
                 completionHandler(.cancel)
                 freshRetried = true
                 sendIfRange = false
