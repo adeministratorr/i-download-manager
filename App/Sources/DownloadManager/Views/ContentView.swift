@@ -166,7 +166,7 @@ struct ContentView: View {
             }
             .width(min: 80, ideal: 95)
 
-            TableColumn("Status", value: \.state.rawValue) { item in
+            TableColumn("Status", value: \.stateRank) { item in
                 StatusCell(item: item)
             }
             .width(min: 140, ideal: 170)

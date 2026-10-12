@@ -935,6 +935,7 @@ final class DownloadStore: ObservableObject {
         items = arr
         cleanupOrphanParts()
         cleanupOrphanCookies()
+        cleanupOrphanTorrentMeta()
     }
 
     /// Listede olmayan indirmelerden kalan `.dm-<id>.part` dosyalarını siler.
@@ -955,6 +956,19 @@ final class DownloadStore: ObservableObject {
         let known = Set(items.map { $0.id.uuidString + ".txt" })
         for n in names where n.hasSuffix(".txt") && n != "sites.txt" && !known.contains(n) {
             if UUID(uuidString: (n as NSString).deletingPathExtension) != nil {
+                try? FileManager.default.removeItem(at: dir.appendingPathComponent(n))
+            }
+        }
+    }
+
+    /// Çökme sonrası listede olmayan torrentlere kalan `.torrent` meta dosyalarını siler.
+    private func cleanupOrphanTorrentMeta() {
+        let dir = supportDir.appendingPathComponent("torrent-meta", isDirectory: true)
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
+        let known = Set(items.map { ".t-\($0.id.uuidString).torrent" })
+        for n in names where n.hasPrefix(".t-") && n.hasSuffix(".torrent") && !known.contains(n) {
+            let stem = String(n.dropFirst(3).dropLast(".torrent".count))
+            if UUID(uuidString: stem) != nil {
                 try? FileManager.default.removeItem(at: dir.appendingPathComponent(n))
             }
         }

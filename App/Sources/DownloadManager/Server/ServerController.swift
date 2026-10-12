@@ -67,6 +67,26 @@ final class ServerController: ObservableObject {
         running = false
         let port = UInt16(clamping: max(1024, min(65535, settings.serverPort)))
         let s = LocalServer(port: port) { [weak self] req, done in
+            // POST /download: köprüden gelen URL'ler için DNS çözümleme tabanlı SSRF
+            // kontrolü. getaddrinfo bloklayabileceğinden arka planda çalışır; motor
+            // düzeyinde yapılmaz — kullanıcı arayüzünden eklenen localhost indirmeleri
+            // meşrudur ve engellenmemelidir.
+            let path = req.path.split(separator: "?", maxSplits: 1).first.map(String.init)
+            if req.method == "POST", path == "/download" {
+                DispatchQueue.global(qos: .userInitiated).async {
+                    if let body = (try? JSONSerialization.jsonObject(with: req.body)) as? [String: Any],
+                       let urlStr = body["url"] as? String, let url = URL(string: urlStr),
+                       let host = url.host, !host.isEmpty,
+                       NetGuard.resolvesToBlockedAddress(host) {
+                        done(.json(["ok": false, "error": "blocked host"], status: 403))
+                        return
+                    }
+                    DispatchQueue.main.async {
+                        done(self?.handle(req) ?? .json(["ok": false, "error": "shutting down"], status: 500))
+                    }
+                }
+                return
+            }
             DispatchQueue.main.async {
                 done(self?.handle(req) ?? .json(["ok": false, "error": "shutting down"], status: 500))
             }
@@ -172,18 +192,21 @@ final class ServerController: ObservableObject {
             ])
 
         case ("GET", "/downloads"):
-            let list: [[String: Any]] = store.items.prefix(50).map {
-                [
-                    "id": $0.id.uuidString,
-                    "name": $0.fileName,
-                    "state": $0.state.rawValue,
-                    "progress": $0.progress,
-                    "speed": $0.speed,
-                    "total": $0.totalBytes,
-                    "received": $0.receivedBytes,
-                    "stage": $0.stage,
-                    "hashVerified": $0.hashVerified as Any,
+            let list: [[String: Any]] = store.items.prefix(50).map { item in
+                var d: [String: Any] = [
+                    "id": item.id.uuidString,
+                    "name": item.fileName,
+                    "state": item.state.rawValue,
+                    "progress": item.progress,
+                    "speed": item.speed,
+                    "total": item.totalBytes,
+                    "received": item.receivedBytes,
+                    "stage": item.stage,
+                    "hashVerified": item.hashVerified as Any,
                 ]
+                // Popup, başarısız indirmenin nedenini göstermek için bu alanı bekler.
+                if let e = item.errorMessage { d["error"] = e }
+                return d
             }
             return .json(["ok": true, "items": list])
 

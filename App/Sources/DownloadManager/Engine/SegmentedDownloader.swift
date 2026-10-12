@@ -84,14 +84,6 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
 
     func start() {
         delegateQueue.addOperation { [self] in
-            // Sayısal olmayan host'lar için çözümleme tabanlı SSRF kontrolü: adı loopback/
-            // link-local'e çözen (DNS rebinding) hedefler string kontrolünden kaçardı.
-            // Bu kuyruk arka planda çalıştığı için bloklayan getaddrinfo burada güvenli.
-            if let host = config.url.host, !host.isEmpty,
-               NetGuard.resolvesToBlockedAddress(host) {
-                fail(DownloadFailure(message: String(localized: "Blocked host")))
-                return
-            }
             // Bozuk resume durumunu ele: sınır dışı segmentler sessizce bozuk dosya üretirdi.
             let boundsOK = !config.resumeSegments.isEmpty
                 && config.resumeSegments.allSatisfy {

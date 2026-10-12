@@ -155,7 +155,9 @@ final class ClipboardWatcher {
         let kind: DownloadKind?
         switch response {
         case .alertFirstButtonReturn: kind = allMagnet ? .torrent : (preferVideo ? .video : .file)
-        case .alertSecondButtonReturn: kind = preferVideo ? .file : .video
+        // Magnet uyarısında ikinci buton "Ignore"dur (indirme butonu tek);
+        // buradan indirme türü türetme — aksi halde Ignore torrent ekler.
+        case .alertSecondButtonReturn: kind = allMagnet ? nil : (preferVideo ? .file : .video)
         default: kind = nil
         }
         guard let kind else { return }

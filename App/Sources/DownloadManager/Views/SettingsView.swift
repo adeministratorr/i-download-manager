@@ -33,7 +33,11 @@ struct GeneralSettings: View {
                     HStack {
                         Text(settings.downloadDirectory).lineLimit(1).truncationMode(.middle)
                         Spacer()
-                        Button("Show") { NSWorkspace.shared.open(URL(fileURLWithPath: settings.downloadDirectory)) }
+                        Button("Show") {
+                            // Klasör yoksa oluştur; aksi halde Show sessizce hiçbir şey açmaz.
+                            try? FileManager.default.createDirectory(atPath: settings.downloadDirectory, withIntermediateDirectories: true)
+                            NSWorkspace.shared.open(URL(fileURLWithPath: settings.downloadDirectory))
+                        }
                         Button("Choose…") { chooseDirectory() }
                     }
                 }
@@ -162,7 +166,12 @@ struct BrowserSettings: View {
             }
             Section("Local bridge") {
                 HStack {
-                    TextField("Port", value: $settings.serverPort, format: .number.grouping(.never))
+                    // Sunucu 1024–65535 aralığına clamp'leyerek dinler; alan aynı aralığı
+                    // yazsın ki girilen değer " gerçekten kullanılan port"tan ayrışmasın.
+                    TextField("Port", value: Binding(
+                        get: { settings.serverPort },
+                        set: { settings.serverPort = max(1024, min(65535, $0)) }
+                    ), format: .number.grouping(.never))
                         .frame(width: 90)
                     Circle().fill(server.running ? .green : .red).frame(width: 8, height: 8)
                     Text(server.statusText).font(.caption).foregroundStyle(.secondary)

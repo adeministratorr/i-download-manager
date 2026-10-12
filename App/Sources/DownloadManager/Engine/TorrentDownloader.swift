@@ -148,8 +148,11 @@ enum TorrentDownloader {
             "--dir=\(outputDir.path)",
             "--seed-time=\(max(0, seedMinutes))",
             "--bt-stop-timeout=0",
-            "--allow-overwrite=true",
-            "--auto-file-renaming=false",
+            // Mevcut kullanıcı dosyasının üstüne yazılmasın: aynı adda dosya varsa
+            // aria2 "name.1"e yazar. Resume .aria2 kontrol dosyasıyla yürüdüğünden
+            // bu, kaldığı yerden devam etmeyi etkilemez.
+            "--allow-overwrite=false",
+            "--auto-file-renaming=true",
             "--continue=true",
             "--check-integrity=true",
             "--bt-hash-check-seed=true",
@@ -172,12 +175,22 @@ enum TorrentDownloader {
         let lock = NSRecursiveLock()
         var outBuf = Data()
         var lastError: String?
+        // aria2 her indirmeyi bitirdiğinde "Download complete: <yol>" basar.
+        // Klasör farkı yalnızca yedek tespit yoludur: duraklat/sürdür sonrası yarım
+        // dosyalar başlangıç snapshot'ında zaten var olduğundan fark boş kalır.
+        var completedPaths: [String] = []
 
         func handle(line raw: String) {
             let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty else { return }
             if let prog = parseReadout(line) {
                 onProgress(prog)
+            }
+            if line.hasPrefix("Download complete: ") {
+                let path = String(line.dropFirst("Download complete: ".count)).trimmingCharacters(in: .whitespaces)
+                if !path.isEmpty {
+                    lock.lock(); completedPaths.append(path); lock.unlock()
+                }
             }
             if line.localizedCaseInsensitiveContains("error") || line.hasPrefix("Exception") {
                 lock.lock(); lastError = line; lock.unlock()
@@ -214,11 +227,18 @@ enum TorrentDownloader {
                 onFinish(.failure(DownloadFailure(message: errText ?? String(localized: "aria2c exited with code \(proc.terminationStatus)"))))
                 return
             }
-            // Sonuç: klasöre yeni eklenen üst-düzey girdi (tek torrent → tek girdi).
-            // `.aria2` kontrol artıkları sonuca dahil edilmez.
+            // Sonuç: aria2'nin "Download complete:" yolları; tespit edilemezse klasör
+            // farkı (yeni üst-düzey girdi). `.aria2` kontrol artıkları hariç tutulur.
             let after = Set((try? fm.contentsOfDirectory(atPath: outputDir.path)) ?? [])
-            let added = after.subtracting(before).filter { !$0.hasSuffix(".aria2") }.sorted()
-            onFinish(.success(added.map { outputDir.appendingPathComponent($0).path }))
+            let diff = after.subtracting(before).filter { !$0.hasSuffix(".aria2") }
+                .sorted().map { outputDir.appendingPathComponent($0).path }
+            let completed = {
+                lock.lock(); defer { lock.unlock() }
+                return Array(NSOrderedSet(array: completedPaths)) as? [String] ?? []
+            }()
+            let paths = completed.filter { fm.fileExists(atPath: $0) }
+            let result = paths.isEmpty ? diff : paths
+            onFinish(.success(result))
         }
 
         do {

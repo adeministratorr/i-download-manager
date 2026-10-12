@@ -11,7 +11,17 @@ struct AddDownloadView: View {
     @State private var expectedHash = ""
     @State private var hashAlgorithm: HashAlgorithm = .sha256
     @State private var hashError: String? = nil
+    @State private var inputError: String? = nil
     @State private var asPlaylist = false
+
+    /// Satırların en az biri türe göre geçerli bir bağlantı mı? (http/https ya da torrent için magnet)
+    private var hasValidLine: Bool {
+        text.split(whereSeparator: \.isNewline).contains {
+            let s = $0.trimmingCharacters(in: .whitespaces)
+            guard let url = URL(string: s), let scheme = url.scheme?.lowercased(), url.host != nil || scheme == "magnet" else { return false }
+            return ["http", "https"].contains(scheme) || (scheme == "magnet" && kind == .torrent)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -20,14 +30,18 @@ struct AddDownloadView: View {
             TextEditor(text: $text)
                 .font(.system(.body, design: .monospaced))
                 .frame(height: 110)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(inputError == nil ? Color(nsColor: .quaternaryLabelColor) : Color.red))
+                .onChange(of: text) { _ in inputError = nil }
             Picker("Type", selection: $kind) {
                 Text("File").tag(DownloadKind.file)
                 Text("Video (yt-dlp)").tag(DownloadKind.video)
                 Text("Torrent (aria2)").tag(DownloadKind.torrent)
             }
             .pickerStyle(.segmented)
-            .onChange(of: kind) { _ in hashError = nil }
+            .onChange(of: kind) { _ in hashError = nil; inputError = nil }
+            if let inputError {
+                Text(inputError).font(.caption).foregroundStyle(.red)
+            }
             if kind == .video {
                 Toggle("Playlist: list all videos and download each (same quality)", isOn: $asPlaylist)
                     .font(.callout)
@@ -80,6 +94,14 @@ struct AddDownloadView: View {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Download") {
+                    inputError = nil
+                    // Hiç geçerli satır yoksa sessizce kapanma: kullanıcıya açıkça söyle.
+                    guard hasValidLine else {
+                        inputError = kind == .torrent
+                            ? String(localized: "No magnet links found in the text.")
+                            : String(localized: "No valid http(s) URLs found in the text.")
+                        return
+                    }
                     if kind == .video, asPlaylist {
                         store.addURLs(text, kind: .video, asPlaylist: true)
                         dismiss()

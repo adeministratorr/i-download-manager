@@ -24,6 +24,8 @@ li .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 li .meta { color: var(--muted); font-size: 11px; }
 details label { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 0; }
 details input { width: 90px; }
+/* Köprü anahtarı bir UUID'dir; 90 px'e sığmaz — tam genişlik. */
+#token { width: 100%; }
 summary { cursor: pointer; color: var(--muted); }
 .bar { height: 4px; border-radius: 2px; background: var(--line); margin: 4px 0 2px; overflow: hidden; }
 .bar .fill { height: 100%; width: 0; background: var(--accent); transition: width .3s; }

@@ -117,7 +117,10 @@ enum VideoDownloader {
 
         // Pipe buffer'ı 64 KB'dır; ~150 video üzeri flat-playlist JSON'ları bunu aşar.
         // Çocuk yazamayıp bloklanır, waitUntilExit asla dönmez ve 60 sn'lik killer
-        // süreci öldürürdü. Akışları bekleme sırasında eşzamanlı boşalt.
+        // süreci öldürürdü. Akışları bekleme sırasında eşzamanlı boşalt. (run()
+        // başarısız olursa okuyucular hiç başlamaz; bu yüzden run() önce gelir —
+        // exec'in ilk yazısına kadar 64 KB tampon yeter.)
+        try p.run()
         var outData = Data()
         var errData = Data()
         let io = DispatchGroup()
@@ -131,7 +134,6 @@ enum VideoDownloader {
             io.leave()
         }
 
-        try p.run()
         // Basit timeout: süre dolarsa öldür.
         let killer = DispatchWorkItem { if p.isRunning { p.terminate() } }
         DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: killer)
@@ -376,6 +378,7 @@ enum VideoDownloader {
         do {
             try p.run()
         } catch {
+            if let t = tmpCookiePath { try? FileManager.default.removeItem(atPath: t) }
             onFinish(.failure(error))
         }
         return p
