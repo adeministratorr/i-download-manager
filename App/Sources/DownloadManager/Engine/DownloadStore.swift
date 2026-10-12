@@ -532,7 +532,7 @@ final class DownloadStore: ObservableObject {
         guard let exe = TorrentDownloader.locateAria2(custom: settings.aria2Path) else {
             update(id) {
                 $0.state = .failed
-                $0.errorMessage = String(localized: "aria2c not found. Install it with “brew install aria2” or set a custom path in Settings ▸ Torrent.")
+                $0.errorMessage = String(localized: "aria2c not found. It ships with the app — reinstall it, or install with “brew install aria2” / set a custom path in Settings ▸ Torrent.")
             }
             pumpQueue()
             return

@@ -40,8 +40,8 @@ elif [[ -n "${NOTARY_PROFILE:-}" ]]; then
 fi
 VERSION="$(sed -n 's/.*MARKETING_VERSION: "\(.*\)"/\1/p' project.yml | head -1)"
 
-echo "▶ Tools (yt-dlp, ffmpeg)"
-[[ -x Tools/yt-dlp && -x Tools/ffmpeg ]] || scripts/fetch-tools.sh
+echo "▶ Tools (yt-dlp, ffmpeg, aria2c)"
+[[ -x Tools/yt-dlp && -x Tools/ffmpeg && -x Tools/aria2c ]] || scripts/fetch-tools.sh
 
 echo "▶ Icons"
 mkdir -p "$BUILD"

@@ -70,18 +70,18 @@ targets:
           destination: wrapper
           subpath: Contents/Helpers
     postCompileScripts:
-      - name: Embed yt-dlp & ffmpeg (Contents/Helpers)
+      - name: Embed yt-dlp, ffmpeg & aria2c (Contents/Helpers)
         shell: /bin/zsh
         script: |
           set -e
           HELPERS="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"
           mkdir -p "$HELPERS"
-          for tool in yt-dlp ffmpeg; do
+          for tool in yt-dlp ffmpeg aria2c; do
             if [[ -f "$SRCROOT/Tools/$tool" ]]; then
               cp -f "$SRCROOT/Tools/$tool" "$HELPERS/$tool"
               chmod +x "$HELPERS/$tool"
             else
-              echo "warning: Tools/$tool missing — run scripts/fetch-tools.sh (the app will fall back to a system yt-dlp)"
+              echo "warning: Tools/$tool missing — run scripts/fetch-tools.sh (the app will fall back to a system copy)"
             fi
           done
           # Unpacked copy of the extension for Chrome

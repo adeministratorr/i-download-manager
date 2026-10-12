@@ -366,7 +366,7 @@ struct TorrentSettings: View {
                         NSPasteboard.general.setString("brew install aria2", forType: .string)
                     }
                 }
-                Text("Torrent downloads run on aria2c. Install it with “brew install aria2” (then relaunch the app), or point to a custom binary below.")
+                Text("Torrent downloads run on aria2c, which ships inside the app. If it's missing, install it with “brew install aria2” (then relaunch) or point to a custom binary below.")
                     .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     TextField("Custom aria2c path (empty = auto-detect)", text: $settings.aria2Path)

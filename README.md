@@ -35,7 +35,7 @@ Open the DMG, drag the app to *Applications*, done. The interface is in **Englis
 - **Video downloads** — `<video>`, `.m3u8` and `.mpd` streams on the page are detected; "Download video from this page" uses the bundled
   yt-dlp (with ffmpeg merging). Default output is MP4 up to 1080p (container and resolution configurable). Browser cookies are passed to
   yt-dlp, and an in-app sign-in window handles age-restricted videos. yt-dlp can be updated from GitHub with one click.
-- **Torrent downloads** — magnet links and `.torrent` files via `aria2c` (DHT, auto-resume, piece hash-checks). Needs `aria2c` (`brew install aria2`, see *Settings ▸ Torrent*); per-torrent seed time is configurable.
+- **Torrent downloads** — magnet links and `.torrent` files via `aria2c` (bundled in the DMG, DHT, auto-resume, piece hash-checks). Per-torrent seed time is configurable.
 - **Clipboard** — copy a link and the app asks whether to download it; paste a link into the main window with ⌘V.
 - **UI** — sidebar categories (Images, Music, Video, Apps, Documents, Archives…), sortable table, search,
   an IDM-style per-download window (connection table, segment bar, auto-close option), menu-bar item, notifications.
