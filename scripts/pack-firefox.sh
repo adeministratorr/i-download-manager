@@ -14,9 +14,9 @@
 # app by scripts/build.sh. API keys: https://addons.mozilla.org/developers/addon/api/key/
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-# Bilerek eski kimlikte tutuldu: paketteki Mozilla-imzalı XPI bu ID ile imzalı;
-# AMO'da yeni kimlikle yeniden imzalanmadan değişirse Firefox bağı kopar.
-GECKO_ID="mc-download-manager@mstcvk.github.io"
+# AMO'da bu kimlikle (unlisted) imzalanır; paketteki XPI ile aynı ID olmalı,
+# yoksa kurulu eklenti native-host'u çağıramaz.
+GECKO_ID="i-download-manager@adeministratorr.github.io"
 VERSION="$(python3 -c "import json;print(json.load(open('$ROOT/Extension/manifest.json'))['version'])")"
 STAGE="$ROOT/build/firefox"
 XPI="$ROOT/build/i-download-manager-firefox-$VERSION.xpi"

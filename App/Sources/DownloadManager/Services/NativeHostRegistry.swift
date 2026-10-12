@@ -7,9 +7,7 @@ import Foundation
 /// extensions allowed to call it. Rewritten at every launch, so moving the app keeps the path current.
 enum NativeHostRegistry {
     static let hostName = "tr.ademyuce.idownloadmanager"
-    // Bilerek eski kimlikte tutuldu: paketteki Mozilla-imzalı XPI bu ID ile
-    // imzalı; yeniden imzalanmadan değişirse Firefox native-host bağı kopar.
-    static let firefoxAddonID = "mc-download-manager@mstcvk.github.io"
+    static let firefoxAddonID = "i-download-manager@adeministratorr.github.io"
 
     private static let idsKey = "chromiumExtensionIDs"
 
