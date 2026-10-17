@@ -995,7 +995,7 @@ final class DownloadStore: ObservableObject {
                         $0.hashVerified = ok
                         if !ok {
                             $0.state = .failed
-                            $0.errorMessage = String(localized: "Hash mismatch (\(algo.displayName)): file may be corrupt. Expected \(expected.prefix(16))…, got \(actual.prefix(16))…")
+                            $0.errorMessage = String(localized: "Hash mismatch (\(algo.displayName)): file may be corrupt. Expected \(String(expected.prefix(16)))…, got \(String(actual.prefix(16)))…")
                         }
                     }
                 case .failure(let e):

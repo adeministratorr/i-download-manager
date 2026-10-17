@@ -67,7 +67,7 @@ xcodebuild -project iDownloadManager.xcodeproj -scheme iDownloadManager -configu
   build 2>&1 | grep -E "error:|warning: Tools|BUILD" || true
 
 APP="$EXPORT/$APP_NAME.app"
-[[ -d "$APP" ]] || { echo "✗ App was not produced"; exit 1; }
+[[ -f "$APP/Contents/MacOS/$APP_NAME" ]] || { echo "✗ App was not produced"; exit 1; }
 
 echo "▶ Firefox add-on"
 scripts/pack-firefox.sh
@@ -94,7 +94,7 @@ cat > "$HELPER_ENT" <<'PLIST'
 </dict></plist>
 PLIST
 # Inside-out: helper binaries → extension → app
-for bin in "$APP/Contents/Helpers/"*; do
+for bin in "$APP/Contents/Helpers/"*(N); do
   [[ -f "$bin" ]] && codesign --force --options runtime $TS --entitlements "$HELPER_ENT" --sign "$IDENTITY" "$bin"
 done
 codesign --force --options runtime $TS \
