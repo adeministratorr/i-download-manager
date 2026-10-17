@@ -200,6 +200,9 @@ struct ContentView: View {
         } else {
             Button("Open Download Window") { ids.forEach { DetailWindowManager.shared.show(id: $0, store: store) } }
             Divider()
+            if items.contains(where: { $0.state == .queued }) {
+                Button("Start Download") { ids.forEach { store.start($0) } }
+            }
             if items.contains(where: { $0.state.isActive || $0.state == .queued }) {
                 Button("Pause") { ids.forEach { store.pause($0) } }
                 Button("Cancel") { ids.forEach { store.cancel($0) } }

@@ -531,6 +531,13 @@ final class DownloadStore: ObservableObject {
         pumpQueue()
     }
 
+    /// Starts a download that is waiting in the queue (added while "Start new downloads immediately" is off),
+    /// as soon as a connection slot is free.
+    func start(_ id: UUID) {
+        guard let i = index(of: id), items[i].state == .queued else { return }
+        if activeCount < settings.maxConcurrent { startItem(id) }
+    }
+
     func cancel(_ id: UUID) {
         guard let i = index(of: id) else { return }
         let item = items[i]
@@ -560,7 +567,10 @@ final class DownloadStore: ObservableObject {
     }
 
     func pauseAll() { items.filter { $0.state.isActive || $0.state == .queued }.forEach { pause($0.id) } }
-    func resumeAll() { items.filter { [.paused, .failed].contains($0.state) }.forEach { resume($0.id) } }
+    func resumeAll() {
+        items.filter { [.paused, .failed].contains($0.state) }.forEach { resume($0.id) }
+        pumpQueue()   // also starts downloads added while "Start new downloads immediately" is off
+    }
     func clearFinished() {
         items.filter { [.completed, .cancelled].contains($0.state) }.forEach { remove($0.id) }
     }

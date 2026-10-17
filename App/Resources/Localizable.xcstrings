@@ -3251,6 +3251,16 @@
           }
         }
       }
+    },
+    "Start Download": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İndirmeyi Başlat"
+          }
+        }
+      }
     }
   }
 }

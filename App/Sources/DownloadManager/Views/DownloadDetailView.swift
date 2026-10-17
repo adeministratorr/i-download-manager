@@ -44,7 +44,11 @@ struct DownloadDetailView: View {
                     .font(.callout)
                 Spacer()
                 switch item.state {
-                case .downloading, .probing, .queued:
+                case .queued:
+                    // Added while "Start new downloads immediately" is off, or waiting for a free slot.
+                    Button("Start Download") { store.start(item.id) }.keyboardShortcut(.defaultAction)
+                    Button("Cancel") { store.cancel(item.id) }
+                case .downloading, .probing:
                     Button("Pause") { store.pause(item.id) }
                     Button("Cancel") { store.cancel(item.id) }
                 case .paused, .failed, .cancelled:
