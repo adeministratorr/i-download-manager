@@ -5,6 +5,7 @@
 #   CODESIGN_IDENTITY="Developer ID Application: Ad Soyad (TEAMID)" scripts/build.sh
 #   ... + NOTARY_PROFILE=<notarytool keychain profili>  → notarize + staple
 #   ... or NOTARY_KEY=<AuthKey_….p8> NOTARY_KEY_ID=<key id> NOTARY_ISSUER=<issuer id>  (App Store Connect API key, no keychain)
+#   SKIP_NOTARIZE=1                  → build + sign + DMG only; submit when Apple's notary queue is responsive
 #
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -105,7 +106,7 @@ codesign --force --options runtime $TS \
   --sign "$IDENTITY" "$APP"
 codesign --verify --deep --strict "$APP" && echo "  signature verified"
 
-if (( ${#NOTARY_AUTH} )) && [[ "$IDENTITY" != "-" ]]; then
+if (( ${#NOTARY_AUTH} )) && [[ "$IDENTITY" != "-" ]] && [[ -z "${SKIP_NOTARIZE:-}" ]]; then
   echo "▶ Notarization — app"
   ZIP="$BUILD/$APP_NAME.zip"
   rm -f "$ZIP"; ditto -c -k --keepParent "$APP" "$ZIP"
@@ -144,7 +145,7 @@ rm -rf "$STAGE"
 if [[ "$IDENTITY" != "-" ]]; then
   codesign --force --timestamp --sign "$IDENTITY" "$DMG"
 fi
-if (( ${#NOTARY_AUTH} )) && [[ "$IDENTITY" != "-" ]]; then
+if (( ${#NOTARY_AUTH} )) && [[ "$IDENTITY" != "-" ]] && [[ -z "${SKIP_NOTARIZE:-}" ]]; then
   echo "▶ Notarization — DMG"
   xcrun notarytool submit "$DMG" "${NOTARY_AUTH[@]}" --wait
   xcrun stapler staple "$DMG"
