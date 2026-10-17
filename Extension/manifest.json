@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "__MSG_extName__",
   "description": "__MSG_extDesc__",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "homepage_url": "https://github.com/adeministratorr/i-download-manager",
   "author": "Adem Yüce",
   "icons": {
