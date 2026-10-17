@@ -139,7 +139,7 @@ struct BrowserSettings: View {
     var body: some View {
         Form {
             Section("Browser extensions") {
-                Text("The guided setup walks you through each installed browser one at a time: Safari (built in, just enable it), Google Chrome and Brave (loaded from a folder), Firefox (signed add-on, one click).")
+                Text("The guided setup walks you through each installed browser one at a time: Safari (built in, just enable it), Google Chrome, Brave and Opera (loaded from a folder), Firefox (signed add-on, one click).")
                     .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Button { ExtensionWizardWindow.shared.show(server: server) } label: {
@@ -161,6 +161,24 @@ struct BrowserSettings: View {
                     Button("Show Plugin Folder") {
                         try? FileManager.default.createDirectory(at: BrowserIntegration.pluginsRoot, withIntermediateDirectories: true)
                         BrowserIntegration.revealInFinder(BrowserIntegration.pluginsRoot)
+                    }
+                }
+            }
+            Section("Sites left to the browser") {
+                Text("Downloads from these sites are not captured; the browser downloads them itself. Add a site from the extension's menu (“Leave this site's downloads to the browser”) or when a download fails.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if settings.browserOnlySites.isEmpty {
+                    Text("No sites").foregroundStyle(.secondary)
+                }
+                ForEach(settings.browserOnlySites, id: \.self) { site in
+                    HStack {
+                        Text(site)
+                        Spacer()
+                        Button(role: .destructive) { settings.setBrowserOnly(site, false) } label: {
+                            Image(systemName: "minus.circle")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Capture downloads from this site again")
                     }
                 }
             }

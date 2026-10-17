@@ -48,6 +48,25 @@ async function refresh() {
     $('minSize').value = st.settings.minSizeMB || 0;
     if (document.activeElement !== $('token')) $('token').value = st.settings.token || '';
   }
+  // Per-site switch: downloads started on this site stay in the browser. The list lives in the app.
+  tab = tab || (await currentTab());
+  const host = siteHost(tab && tab.url);
+  $('siteRow').classList.toggle('hidden', !host);
+  if (host) {
+    const list = (st && st.browserOnlySites) || [];
+    $('siteBrowserOnly').checked = list.some((s) => host === s || host.endsWith('.' + s));
+    $('siteBrowserOnly').disabled = !online;
+    $('siteLabel').textContent = t('popupSiteBrowserOnly', [host]);
+    $('siteRow').title = online ? '' : t('popupSiteNeedsApp');
+  }
+}
+
+function siteHost(url) {
+  try {
+    const u = new URL(url);
+    if (!/^https?:$/.test(u.protocol)) return '';
+    return u.hostname.toLowerCase().replace(/^www\./, '');
+  } catch { return ''; }
 }
 
 async function loadMedia() {
@@ -165,6 +184,12 @@ $('intercept').onchange = (e) => send({ type: 'setSettings', settings: { interce
 $('sniff').onchange = (e) => send({ type: 'setSettings', settings: { sniff: e.target.checked } });
 $('autoLaunch').onchange = (e) => send({ type: 'setSettings', settings: { autoLaunch: e.target.checked } });
 $('port').onchange = (e) => send({ type: 'setSettings', settings: { port: parseInt(e.target.value, 10) || 48213 } }).then(refresh);
+$('siteBrowserOnly').onchange = async (e) => {
+  const host = siteHost(tab && tab.url);
+  const r = await send({ type: 'setSite', host, browserOnly: e.target.checked });
+  if (!r || !r.ok) e.target.checked = !e.target.checked;
+  refresh();
+};
 $('minSize').onchange = (e) => send({ type: 'setSettings', settings: { minSizeMB: parseInt(e.target.value, 10) || 0 } });
 $('token').onchange = (e) => send({ type: 'setSettings', settings: { token: String(e.target.value || '').trim() } }).then(refresh);
 

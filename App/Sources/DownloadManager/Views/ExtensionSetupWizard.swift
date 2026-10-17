@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// Guided, one-browser-at-a-time setup of the browser extensions (Safari, Chrome, Brave, Firefox).
+/// Guided, one-browser-at-a-time setup of the browser extensions (Safari, Chrome, Brave, Opera, Firefox).
 struct ExtensionSetupWizard: View {
     @EnvironmentObject var server: ServerController
     let browsers: [BrowserIntegration.Kind]
@@ -138,7 +138,7 @@ struct ExtensionSetupWizard: View {
         }
     }
 
-    // MARK: Chrome / Brave
+    // MARK: Chrome / Brave / Opera
 
     @ViewBuilder
     private var chromiumStep: some View {

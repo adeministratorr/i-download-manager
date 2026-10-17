@@ -77,19 +77,21 @@ struct DownloadItem: Identifiable, Codable, Equatable {
     var playlistTitle: String? = nil
     var playlistIndex: Int? = nil
     var playlistCount: Int? = nil
+    var sourceBrowser: String? = nil    // extension that sent it (chrome, brave, opera, edge, firefox, safari)
 
     // Kalıcı olmayan alanlar
     var speed: Double = 0
     var log: String = ""
     var stage: String = ""      // yt-dlp: current phase (downloading video/audio, merging…)
     var hashChecking: Bool = false
+    var lastHTTPStatus: Int? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, url, fileName, directory, kind, state, totalBytes, receivedBytes, supportsRanges,
              segments, headers, cookieFile, errorMessage, createdAt, completedAt, finalPath, requestedSegments,
              expectedHash, hashAlgorithm, computedHash, hashVerified,
              playlistId, playlistTitle, playlistIndex, playlistCount,
-             etag, lastModified
+             etag, lastModified, sourceBrowser
     }
 
     init(id: UUID = UUID(), url: URL, fileName: String, directory: URL, kind: DownloadKind = .file,
@@ -160,6 +162,7 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         playlistCount = try c.decodeIfPresent(Int.self, forKey: .playlistCount)
         etag = try c.decodeIfPresent(String.self, forKey: .etag)
         lastModified = try c.decodeIfPresent(String.self, forKey: .lastModified)
+        sourceBrowser = try c.decodeIfPresent(String.self, forKey: .sourceBrowser)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -191,6 +194,7 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         try c.encodeIfPresent(playlistCount, forKey: .playlistCount)
         try c.encodeIfPresent(etag, forKey: .etag)
         try c.encodeIfPresent(lastModified, forKey: .lastModified)
+        try c.encodeIfPresent(sourceBrowser, forKey: .sourceBrowser)
     }
 
     var destinationURL: URL { directory.appendingPathComponent(fileName) }
@@ -208,6 +212,7 @@ struct DownloadItem: Identifiable, Codable, Equatable {
 
 struct DownloadFailure: LocalizedError {
     let message: String
+    var local = false           // disk/file problem: a browser would not do better
     var errorDescription: String? { message }
 }
 
@@ -271,4 +276,5 @@ extension DownloadItem {
     var isFinished: Bool { state == .completed }
     /// Tabloda durum kolonunu alfabetik rawValue yerine mantıksal akış sırasına göre sıralar.
     var stateRank: Int { state.sortRank }
+    var referer: URL? { headers["Referer"].flatMap { URL(string: $0) } }
 }

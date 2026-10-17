@@ -9,9 +9,10 @@ const IS_SAFARI = !IS_FIREFOX && typeof browser !== 'undefined' && !!browser.run
   && !(typeof chrome !== 'undefined' && chrome.downloads?.onDeterminingFilename);
 
 const DEFAULTS = { port: 48213, intercept: true, minSizeMB: 0, sniff: true, autoLaunch: true, token: '' };
-// Native messaging host bundled with the app (Chrome/Brave/Edge/Firefox); Safari talks to its app extension.
+// Native messaging host bundled with the app (Chrome/Brave/Opera/Edge/Firefox); Safari talks to its app extension.
 const NATIVE_HOST = 'tr.ademyuce.idownloadmanager';
-const BROWSER = IS_FIREFOX ? 'firefox' : IS_SAFARI ? 'safari' : (navigator.brave ? 'brave' : (/Edg\//.test(navigator.userAgent) ? 'edge' : 'chrome'));
+const BROWSER = IS_FIREFOX ? 'firefox' : IS_SAFARI ? 'safari'
+  : navigator.brave ? 'brave' : /OPR\//.test(navigator.userAgent) ? 'opera' : /Edg\//.test(navigator.userAgent) ? 'edge' : 'chrome';
 
 const MEDIA_EXT = /\.(mp4|m4v|webm|mkv|mov|avi|flv|mp3|m4a|aac|ogg|opus|wav|flac)(\?|#|$)/i;
 const FRAGMENT = /\.(ts|m4s|m4f|cmfv|cmfa|fmp4|init)(\?|#|$)|[/_.-](seg|segment|chunk|frag|fragment)[-_]?\d+/i;
@@ -49,6 +50,7 @@ async function ping(settings) {
     const app = await r.json();
     if (app && app.active > 0) startProgress();
     if (app && Array.isArray(app.captureExtensions)) api.storage.local.set({ captureExtensions: app.captureExtensions });
+    if (app && Array.isArray(app.browserOnlySites)) api.storage.local.set({ browserOnlySites: app.browserOnlySites });
     return app;
   } catch {
     return null;
@@ -218,6 +220,32 @@ function matchesCaptureTypes(app, filename, url) {
   return !!e && list.includes(e);
 }
 
+// ---------- Sites left to the browser (list comes from the app) ----------
+function siteKey(urlOrHost) {
+  let h = String(urlOrHost || '');
+  try { if (/^[a-z][a-z0-9+.-]*:/i.test(h)) h = new URL(h).hostname; } catch { return ''; }
+  h = h.toLowerCase();
+  return h.startsWith('www.') ? h.slice(4) : h;
+}
+function hostListed(host, list) {
+  const h = siteKey(host);
+  return !!h && (list || []).some((s) => h === s || h.endsWith('.' + s));
+}
+// Permanent entries plus hosts the app handed back to the browser a moment ago.
+function leftToBrowser(app, cachedSites, ...urls) {
+  const list = [...((app && app.browserOnlySites) || cachedSites || []), ...((app && app.bypassHosts) || [])];
+  return urls.some((u) => u && hostListed(u, list));
+}
+async function setSiteBrowserOnly(host, browserOnly) {
+  const key = siteKey(host);
+  if (!key) return { ok: false };
+  try {
+    const j = await bridgeJSON('/site', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: key, browserOnly }) });
+    if (j && Array.isArray(j.browserOnlySites)) await api.storage.local.set({ browserOnlySites: j.browserOnlySites });
+    return j;
+  } catch (e) { return { ok: false, error: String(e) }; }
+}
+
 // ---------- Download interception (Chrome) ----------
 async function interceptDownload(item) {
   const settings = await getSettings();
@@ -226,13 +254,14 @@ async function interceptDownload(item) {
   if (!/^https?:/i.test(url)) return false;
   if (item.byExtensionId) return false;
   if (settings.minSizeMB > 0 && item.totalBytes > 0 && item.totalBytes < settings.minSizeMB * 1024 * 1024) return false;
+  const { captureExtensions, browserOnlySites } = await api.storage.local.get(['captureExtensions', 'browserOnlySites']);
   let app = await ping(settings);
-  if (!app && settings.autoLaunch) {
+  if (!app && settings.autoLaunch && !leftToBrowser(null, browserOnlySites, url, item.referrer)) {
     // Only start the app for file types it would take (list remembered from its last answer).
-    const { captureExtensions } = await api.storage.local.get('captureExtensions');
     if (matchesCaptureTypes({ captureExtensions }, item.filename || '', url)) app = await ensureApp(settings);
   }
   if (!app) return false;
+  if (leftToBrowser(app, browserOnlySites, url, item.referrer)) return false;
   if (!matchesCaptureTypes(app, item.filename || '', url)) return false;
 
   // The app must accept the download BEFORE the browser copy is cancelled/erased.
@@ -260,13 +289,10 @@ if (api.downloads?.onDeterminingFilename) {
   });
 } else if (api.downloads?.onCreated) {
   // Firefox has no onDeterminingFilename: the browser download is already running when we hear about it.
-  // Pause it at once so it does not keep downloading while the app is asked; resume it if the app declines.
-  api.downloads.onCreated.addListener((item) => {
-    const paused = item.state === 'in_progress' ? Promise.resolve(api.downloads.pause(item.id)).then(() => true, () => false) : Promise.resolve(false);
-    interceptDownload(item).then(async (took) => {
-      if (!took && (await paused)) { try { await api.downloads.resume(item.id); } catch {} }
-    });
-  });
+  // It keeps running while the app is asked and is cancelled (and its copy removed) only if the app takes it.
+  // Never pause it here: Firefox's pause is a cancel, and a download whose response cannot be resumed
+  // (blob: URLs such as ChatGPT's generated files, servers without Range support) then fails for good.
+  api.downloads.onCreated.addListener((item) => { interceptDownload(item); });
 }
 
 // ---------- Media sniffing ----------
@@ -424,10 +450,12 @@ api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case 'status': {
           const settings = await getSettings();
           const app = await ping(settings);
-          const cached = app ? null : (await api.storage.local.get('captureExtensions')).captureExtensions;
+          const cached = app ? {} : await api.storage.local.get(['captureExtensions', 'browserOnlySites']);
           sendResponse({
             online: !!app, app, settings, clickIntercept: !api.downloads?.onDeterminingFilename, isSafari: IS_SAFARI,
-            canLaunch: !!api.runtime.sendNativeMessage, captureExtensions: (app && app.captureExtensions) || cached || [],
+            canLaunch: !!api.runtime.sendNativeMessage, captureExtensions: (app && app.captureExtensions) || cached.captureExtensions || [],
+            browserOnlySites: (app && app.browserOnlySites) || cached.browserOnlySites || [],
+            bypassHosts: (app && app.bypassHosts) || [],
           });
           break;
         }
@@ -450,6 +478,7 @@ api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           break;
         }
         case 'launchApp': sendResponse({ ok: await launchApp() }); break;
+        case 'setSite': sendResponse(await setSiteBrowserOnly(msg.host, !!msg.browserOnly)); break;
         case 'pageMedia': {
           if (sender.tab) {
             for (const m of msg.items || []) {

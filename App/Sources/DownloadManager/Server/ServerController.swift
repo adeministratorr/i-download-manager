@@ -6,7 +6,7 @@ import Network
 final class ServerController: ObservableObject {
     @Published var statusText = String(localized: "Not started")
     @Published var running = false
-    /// Last time each browser's extension talked to the bridge (keys: safari, chrome, brave, firefox, other).
+    /// Last time each browser's extension talked to the bridge (keys: safari, chrome, brave, opera, edge, firefox, other).
     @Published var extensionConnections: [String: Date] = [:]
 
     /// Bir tarayıcının "bağlı" sayıldığı tazelik penceresi; Settings ve kurulum sihirbazı ortak kullanır.
@@ -18,23 +18,7 @@ final class ServerController: ObservableObject {
     }
 
     private func noteConnection(_ req: HTTPRequest) {
-        var browser = "other"
-        if let origin = req.headers["origin"] {
-            if origin.hasPrefix("safari-web-extension://") { browser = "safari" }
-            else if origin.hasPrefix("chrome-extension://") { browser = "chrome" }
-            else if origin.hasPrefix("moz-extension://") { browser = "firefox" }
-        }
-        if let h = req.headers["x-mcdm-extension"]?.lowercased(), ["safari", "chrome", "brave", "edge", "firefox"].contains(h) { browser = h }
-        if let q = req.path.split(separator: "?", maxSplits: 1).last, req.path.contains("?") {
-            for pair in q.split(separator: "&") {
-                let kv = pair.split(separator: "=", maxSplits: 1)
-                // Yalnızca bilinen değerler kabul edilir; rastgele sorgu anahtarla UI kirletilemez.
-                if kv.count == 2, kv[0] == "browser",
-                   ["safari", "chrome", "brave", "edge", "firefox", "other"].contains(String(kv[1]).lowercased()) {
-                    browser = String(kv[1]).lowercased()
-                }
-            }
-        }
+        let browser = Self.browserName(req)
         extensionConnections[browser] = Date()
         // Chromium extension ids may call the native host that launches the app (see NativeHostRegistry).
         var extensionID = req.headers["x-mcdm-extension-id"]
@@ -44,6 +28,28 @@ final class ServerController: ObservableObject {
         if let id = extensionID?.lowercased(), NativeHostRegistry.isValidChromiumID(id) {
             DispatchQueue.global(qos: .utility).async { NativeHostRegistry.noteExtensionID(id) }
         }
+    }
+
+    /// Which browser's extension sent the request (safari, chrome, brave, opera, edge, firefox, other).
+    static func browserName(_ req: HTTPRequest) -> String {
+        var browser = "other"
+        if let origin = req.headers["origin"] {
+            if origin.hasPrefix("safari-web-extension://") { browser = "safari" }
+            else if origin.hasPrefix("chrome-extension://") { browser = "chrome" }
+            else if origin.hasPrefix("moz-extension://") { browser = "firefox" }
+        }
+        if let h = req.headers["x-mcdm-extension"]?.lowercased(), ["safari", "chrome", "brave", "opera", "edge", "firefox"].contains(h) { browser = h }
+        if let q = req.path.split(separator: "?", maxSplits: 1).last, req.path.contains("?") {
+            for pair in q.split(separator: "&") {
+                let kv = pair.split(separator: "=", maxSplits: 1)
+                // Yalnızca bilinen değerler kabul edilir; rastgele sorgu anahtarla UI kirletilemez.
+                if kv.count == 2, kv[0] == "browser",
+                   ["safari", "chrome", "brave", "opera", "edge", "firefox", "other"].contains(String(kv[1]).lowercased()) {
+                    browser = String(kv[1]).lowercased()
+                }
+            }
+        }
+        return browser
     }
 
     private var server: LocalServer?
@@ -194,6 +200,9 @@ final class ServerController: ObservableObject {
                 "ytdlp": VideoDownloader.locateYtDlp(custom: settings.ytdlpPath) != nil,
                 "active": store.items.filter { $0.state.isActive }.count,
                 "captureExtensions": settings.captureExtensions,
+                // Downloads from these sites stay in the browser: permanently, or for a few minutes after a hand-off.
+                "browserOnlySites": settings.browserOnlySites,
+                "bypassHosts": store.bypassHosts,
             ])
 
         case ("GET", "/downloads"):
@@ -249,6 +258,8 @@ final class ServerController: ObservableObject {
                     r.hashAlgorithm = algo
                 }
             }
+            let browser = Self.browserName(req)
+            if browser != "other" { r.sourceBrowser = browser }
             let wantPlaylist = (obj["playlist"] as? Bool) == true || kindStr == "playlist"
             if kindStr == "playlist" { r.kind = .video }
             if wantPlaylist, r.kind == .video {
@@ -258,6 +269,15 @@ final class ServerController: ObservableObject {
             }
             let item = store.add(r)
             return .json(["ok": true, "id": item.id.uuidString])
+
+        case ("POST", "/site"):
+            guard let obj = (try? JSONSerialization.jsonObject(with: req.body)) as? [String: Any],
+                  let host = obj["host"] as? String, AppSettings.siteKey(host) != nil,
+                  let on = obj["browserOnly"] as? Bool else {
+                return .json(["ok": false, "error": "host and browserOnly required"], status: 400)
+            }
+            settings.setBrowserOnly(host, on)
+            return .json(["ok": true, "browserOnlySites": settings.browserOnlySites])
 
         case ("POST", "/action"):
             guard let obj = (try? JSONSerialization.jsonObject(with: req.body)) as? [String: Any],

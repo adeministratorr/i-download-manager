@@ -75,6 +75,8 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
     private var freshRetried = false
     private var sendIfRange = false
     private var pendingResume: (segments: [SegmentInfo], total: Int64, etag: String?)? = nil
+    /// The Range probe was refused: the plain GET (what a browser sends) also has to report the probe result.
+    private var probeFromSingle = false
     private var lastReport = Date.distantPast
 
     init(configuration: Configuration) {
@@ -174,7 +176,20 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
 
     private func handleProbe(_ http: HTTPURLResponse) {
         let status = http.statusCode
-        guard (200...299).contains(status) else { fail(HTTPStatusError(status: status)); return }
+        guard (200...299).contains(status) else {
+            // Some servers (signed / one-shot links, anti download-manager checks) refuse a Range request
+            // but serve the plain GET a browser would send: try that once before giving up.
+            if !fallbackDone, !Self.isThrottle(status) {
+                fallbackDone = true
+                probeFromSingle = true
+                guard openFile(create: true, preallocate: nil) else { return }
+                mode = .single
+                launchSingle()
+            } else {
+                fail(HTTPStatusError(status: status))
+            }
+            return
+        }
 
         var total: Int64 = -1
         var ranges = false
@@ -260,7 +275,7 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
             }
             if create || !fm.fileExists(atPath: config.partURL.path) {
                 guard fm.createFile(atPath: config.partURL.path, contents: nil) else {
-                    throw DownloadFailure(message: String(localized: "Could not create file: \(config.partURL.path)"))
+                    throw DownloadFailure(message: String(localized: "Could not create file: \(config.partURL.path)"), local: true)
                 }
                 try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: config.partURL.path)
             }
@@ -331,7 +346,9 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
         t.resume()
     }
 
-    /// Sunucu Range'i yok sayıp 200 döndürdüyse tek akışa geç.
+    private static func isThrottle(_ status: Int) -> Bool { [408, 425, 429, 500, 502, 503, 504].contains(status) }
+
+    /// Sunucu Range'i yok sayıp 200 döndürdüyse ya da parça isteklerini reddettiyse tek akışa geç.
     private func fallbackToSingle() {
         guard !fallbackDone else { return }
         fallbackDone = true
@@ -443,7 +460,7 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
             case 200:
                 completionHandler(.cancel)
                 fallbackToSingle()
-            case 408, 425, 429, 500, 502, 503, 504:
+            case let s where Self.isThrottle(s):
                 completionHandler(.cancel)
                 segmentTasks[dataTask.taskIdentifier] = nil
                 throttle(segment: entry.index, status: http.statusCode)
@@ -468,8 +485,9 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
                 segments = []
                 probe()
             default:
+                // 401/403/410…: the server accepted the probe but refuses parallel connections — continue on one.
                 completionHandler(.cancel)
-                fail(HTTPStatusError(status: http.statusCode))
+                if fallbackDone { fail(HTTPStatusError(status: http.statusCode)) } else { fallbackToSingle() }
             }
             return
         }
@@ -482,6 +500,16 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
             }
             // The real GET may differ from the probe (dynamic responses); trust its Content-Length.
             singleTotal = http.expectedContentLength > 0 ? http.expectedContentLength : -1
+            if probeFromSingle {
+                probeFromSingle = false
+                if let u = http.url { requestURL = u }
+                let ctype = http.value(forHTTPHeaderField: "Content-Type")?
+                    .components(separatedBy: ";").first?
+                    .trimmingCharacters(in: .whitespaces)
+                onProbe?(ProbeResult(totalBytes: singleTotal, supportsRanges: false,
+                                     suggestedFileName: Self.fileName(fromContentDisposition: http.value(forHTTPHeaderField: "Content-Disposition")),
+                                     contentType: ctype, finalURL: http.url))
+            }
             completionHandler(.allow)
             return
         }

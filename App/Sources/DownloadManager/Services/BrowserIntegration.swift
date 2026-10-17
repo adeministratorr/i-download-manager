@@ -3,14 +3,14 @@ import Foundation
 import Security
 import SafariServices
 
-/// Browser extension helpers. Supported browsers for the guided setup: Safari, Google Chrome, Brave, Firefox.
+/// Browser extension helpers. Supported browsers for the guided setup: Safari, Google Chrome, Brave, Opera, Firefox.
 enum BrowserIntegration {
     static let safariExtensionID = "tr.ademyuce.idownloadmanager.safari"
     /// Set this once the extension is published on the Chrome Web Store; the wizard then links to it.
     static let chromeWebStoreURL: URL? = nil
 
     enum Kind: String, CaseIterable, Identifiable {
-        case safari, chrome, brave, firefox
+        case safari, chrome, brave, opera, firefox
         var id: String { rawValue }
 
         var name: String {
@@ -18,6 +18,7 @@ enum BrowserIntegration {
             case .safari: return "Safari"
             case .chrome: return "Google Chrome"
             case .brave: return "Brave"
+            case .opera: return "Opera"
             case .firefox: return "Firefox"
             }
         }
@@ -26,6 +27,7 @@ enum BrowserIntegration {
             case .safari: return "com.apple.Safari"
             case .chrome: return "com.google.Chrome"
             case .brave: return "com.brave.Browser"
+            case .opera: return "com.operasoftware.Opera"
             case .firefox: return "org.mozilla.firefox"
             }
         }
@@ -34,10 +36,11 @@ enum BrowserIntegration {
             case .safari: return ""
             case .chrome: return "chrome://extensions"
             case .brave: return "brave://extensions"
+            case .opera: return "opera://extensions"
             case .firefox: return "about:addons"
             }
         }
-        var isChromium: Bool { self == .chrome || self == .brave }
+        var isChromium: Bool { self == .chrome || self == .brave || self == .opera }
         var appURL: URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) }
         var isInstalled: Bool { appURL != nil }
         var icon: NSImage? { appURL.map { NSWorkspace.shared.icon(forFile: $0.path) } }
