@@ -25,7 +25,7 @@ jobs:
         run: scripts/build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: MC-Download-Manager-dmg
+          name: iDownload-Manager-dmg
           path: build/*.dmg
       # Releases are published from a local Developer ID-signed, notarized build (scripts/build.sh);
       # the CI DMG is ad-hoc signed and kept only as a workflow artifact.
