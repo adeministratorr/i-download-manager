@@ -48,6 +48,9 @@ struct DownloadDetailView: View {
                     Button("Pause") { store.pause(item.id) }
                     Button("Cancel") { store.cancel(item.id) }
                 case .paused, .failed, .cancelled:
+                    if item.state == .failed, item.kind == .file {
+                        Button("Download in Browser") { store.handOffToBrowser(item.id); DetailWindowManager.shared.close(id: item.id) }
+                    }
                     Button("Resume") { store.resume(item.id) }.keyboardShortcut(.defaultAction)
                     Button("Remove from List") { store.remove(item.id); DetailWindowManager.shared.close(id: item.id) }
                 case .completed:

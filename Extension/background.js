@@ -44,6 +44,7 @@ async function ping(settings) {
     const app = await r.json();
     if (app && app.active > 0) startProgress();
     if (app && Array.isArray(app.captureExtensions)) api.storage.local.set({ captureExtensions: app.captureExtensions });
+    if (app && Array.isArray(app.browserOnlySites)) api.storage.local.set({ browserOnlySites: app.browserOnlySites });
     return app;
   } catch {
     return null;
@@ -212,6 +213,32 @@ function matchesCaptureTypes(app, filename, url) {
   return !!e && list.includes(e);
 }
 
+// ---------- Sites left to the browser (list comes from the app) ----------
+function siteKey(urlOrHost) {
+  let h = String(urlOrHost || '');
+  try { if (/^[a-z][a-z0-9+.-]*:/i.test(h)) h = new URL(h).hostname; } catch { return ''; }
+  h = h.toLowerCase();
+  return h.startsWith('www.') ? h.slice(4) : h;
+}
+function hostListed(host, list) {
+  const h = siteKey(host);
+  return !!h && (list || []).some((s) => h === s || h.endsWith('.' + s));
+}
+// Permanent entries plus hosts the app handed back to the browser a moment ago.
+function leftToBrowser(app, cachedSites, ...urls) {
+  const list = [...((app && app.browserOnlySites) || cachedSites || []), ...((app && app.bypassHosts) || [])];
+  return urls.some((u) => u && hostListed(u, list));
+}
+async function setSiteBrowserOnly(host, browserOnly) {
+  const key = siteKey(host);
+  if (!key) return { ok: false };
+  try {
+    const j = await bridgeJSON('/site', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host: key, browserOnly }) });
+    if (j && Array.isArray(j.browserOnlySites)) await api.storage.local.set({ browserOnlySites: j.browserOnlySites });
+    return j;
+  } catch (e) { return { ok: false, error: String(e) }; }
+}
+
 // ---------- Download interception (Chrome) ----------
 async function interceptDownload(item) {
   const settings = await getSettings();
@@ -220,13 +247,14 @@ async function interceptDownload(item) {
   if (!/^https?:/i.test(url)) return false;
   if (item.byExtensionId) return false;
   if (settings.minSizeMB > 0 && item.totalBytes > 0 && item.totalBytes < settings.minSizeMB * 1024 * 1024) return false;
+  const { captureExtensions, browserOnlySites } = await api.storage.local.get(['captureExtensions', 'browserOnlySites']);
   let app = await ping(settings);
-  if (!app && settings.autoLaunch) {
+  if (!app && settings.autoLaunch && !leftToBrowser(null, browserOnlySites, url, item.referrer)) {
     // Only start the app for file types it would take (list remembered from its last answer).
-    const { captureExtensions } = await api.storage.local.get('captureExtensions');
     if (matchesCaptureTypes({ captureExtensions }, item.filename || '', url)) app = await ensureApp(settings);
   }
   if (!app) return false;
+  if (leftToBrowser(app, browserOnlySites, url, item.referrer)) return false;
   if (!matchesCaptureTypes(app, item.filename || '', url)) return false;
 
   try { await api.downloads.cancel(item.id); } catch {}
@@ -410,10 +438,12 @@ api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case 'status': {
           const settings = await getSettings();
           const app = await ping(settings);
-          const cached = app ? null : (await api.storage.local.get('captureExtensions')).captureExtensions;
+          const cached = app ? {} : await api.storage.local.get(['captureExtensions', 'browserOnlySites']);
           sendResponse({
             online: !!app, app, settings, clickIntercept: !api.downloads?.onDeterminingFilename, isSafari: IS_SAFARI,
-            canLaunch: !!api.runtime.sendNativeMessage, captureExtensions: (app && app.captureExtensions) || cached || [],
+            canLaunch: !!api.runtime.sendNativeMessage, captureExtensions: (app && app.captureExtensions) || cached.captureExtensions || [],
+            browserOnlySites: (app && app.browserOnlySites) || cached.browserOnlySites || [],
+            bypassHosts: (app && app.bypassHosts) || [],
           });
           break;
         }
@@ -423,6 +453,7 @@ api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case 'download': sendResponse(await sendToApp(msg)); break;
         case 'setSettings': await setSettings(msg.settings || {}); sendResponse({ ok: true }); break;
         case 'launchApp': sendResponse({ ok: await launchApp() }); break;
+        case 'setSite': sendResponse(await setSiteBrowserOnly(msg.host, !!msg.browserOnly)); break;
         case 'pageMedia': {
           if (sender.tab) {
             for (const m of msg.items || []) {

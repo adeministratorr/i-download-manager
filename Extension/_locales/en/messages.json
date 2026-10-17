@@ -143,5 +143,19 @@
   },
   "popupAutoLaunch": {
     "message": "Open the app when a download arrives"
+  },
+  "popupSiteBrowserOnly": {
+    "message": "Leave downloads on $HOST$ to the browser",
+    "description": "Popup toggle; $HOST$ is the current site",
+    "placeholders": {
+      "host": {
+        "content": "$1",
+        "example": "wetransfer.com"
+      }
+    }
+  },
+  "popupSiteNeedsApp": {
+    "message": "Open the app to change this",
+    "description": "Tooltip when the app is offline"
   }
 }

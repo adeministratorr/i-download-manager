@@ -3151,6 +3151,96 @@
           }
         }
       }
+    },
+    "Download in the browser instead?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bunun yerine tarayıcıda indirilsin mi?"
+          }
+        }
+      }
+    },
+    "“%@” could not be downloaded: %@\n\nSome sites (for example WeTransfer) only allow their downloads in a browser. MC Download Manager can hand this download back to the browser.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” indirilemedi: %@\n\nBazı siteler (örneğin WeTransfer) dosyalarının yalnızca tarayıcıda indirilmesine izin verir. MC Download Manager bu indirmeyi tarayıcıya geri aktarabilir."
+          }
+        }
+      }
+    },
+    "Download in Browser": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarayıcıda İndir"
+          }
+        }
+      }
+    },
+    "Retry Here": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Burada Yeniden Dene"
+          }
+        }
+      }
+    },
+    "Always leave downloads from %@ to the browser": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ indirmelerini her zaman tarayıcıya bırak"
+          }
+        }
+      }
+    },
+    "Sites left to the browser": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarayıcıya bırakılan siteler"
+          }
+        }
+      }
+    },
+    "Downloads from these sites are not captured; the browser downloads them itself. Add a site from the extension's menu (“Leave this site's downloads to the browser”) or when a download fails.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu sitelerden yapılan indirmeler yakalanmaz; tarayıcı kendisi indirir. Site eklemek için eklenti menüsündeki “… indirmelerini tarayıcıya bırak” seçeneğini kullanın ya da bir indirme başarısız olduğunda çıkan soruda işaretleyin."
+          }
+        }
+      }
+    },
+    "No sites": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Site yok"
+          }
+        }
+      }
+    },
+    "Capture downloads from this site again": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu sitenin indirmelerini yeniden yakala"
+          }
+        }
+      }
     }
   }
 }

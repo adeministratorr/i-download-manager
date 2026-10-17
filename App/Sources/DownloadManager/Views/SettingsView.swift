@@ -159,6 +159,24 @@ struct BrowserSettings: View {
                     }
                 }
             }
+            Section("Sites left to the browser") {
+                Text("Downloads from these sites are not captured; the browser downloads them itself. Add a site from the extension's menu (“Leave this site's downloads to the browser”) or when a download fails.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if settings.browserOnlySites.isEmpty {
+                    Text("No sites").foregroundStyle(.secondary)
+                }
+                ForEach(settings.browserOnlySites, id: \.self) { site in
+                    HStack {
+                        Text(site)
+                        Spacer()
+                        Button(role: .destructive) { settings.setBrowserOnly(site, false) } label: {
+                            Image(systemName: "minus.circle")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Capture downloads from this site again")
+                    }
+                }
+            }
             Section("Local bridge") {
                 HStack {
                     TextField("Port", value: $settings.serverPort, format: .number.grouping(.never))

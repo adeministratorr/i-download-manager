@@ -143,5 +143,19 @@
   },
   "popupAutoLaunch": {
     "message": "İndirme gelince uygulamayı aç"
+  },
+  "popupSiteBrowserOnly": {
+    "message": "$HOST$ indirmelerini tarayıcıya bırak",
+    "description": "Popup toggle; $HOST$ is the current site",
+    "placeholders": {
+      "host": {
+        "content": "$1",
+        "example": "wetransfer.com"
+      }
+    }
+  },
+  "popupSiteNeedsApp": {
+    "message": "Bunu değiştirmek için uygulamayı açın",
+    "description": "Tooltip when the app is offline"
   }
 }

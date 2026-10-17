@@ -207,6 +207,12 @@ struct ContentView: View {
             if items.contains(where: { [.paused, .failed, .cancelled].contains($0.state) }) {
                 Button("Resume / Retry") { ids.forEach { store.resume($0) } }
             }
+            if items.contains(where: { $0.kind == .file && $0.state == .failed }) {
+                Button("Download in Browser") {
+                    items.filter { $0.kind == .file && $0.state == .failed }.forEach { store.handOffToBrowser($0.id) }
+                    selection.subtract(ids)
+                }
+            }
             if items.count == 1, let item = items.first {
                 Divider()
                 Button("Copy URL") {
