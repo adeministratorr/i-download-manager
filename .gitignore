@@ -5,3 +5,11 @@ DerivedData/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 .DS_Store
 *.dmg
+# Signing material and signed artifacts — never commit these.
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+AuthKey_*
+*.xpi
