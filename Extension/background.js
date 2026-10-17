@@ -278,13 +278,10 @@ if (api.downloads?.onDeterminingFilename) {
   });
 } else if (api.downloads?.onCreated) {
   // Firefox has no onDeterminingFilename: the browser download is already running when we hear about it.
-  // Pause it at once so it does not keep downloading while the app is asked; resume it if the app declines.
-  api.downloads.onCreated.addListener((item) => {
-    const paused = item.state === 'in_progress' ? Promise.resolve(api.downloads.pause(item.id)).then(() => true, () => false) : Promise.resolve(false);
-    interceptDownload(item).then(async (took) => {
-      if (!took && (await paused)) { try { await api.downloads.resume(item.id); } catch {} }
-    });
-  });
+  // It keeps running while the app is asked and is cancelled (and its copy removed) only if the app takes it.
+  // Never pause it here: Firefox's pause is a cancel, and a download whose response cannot be resumed
+  // (blob: URLs such as ChatGPT's generated files, servers without Range support) then fails for good.
+  api.downloads.onCreated.addListener((item) => { interceptDownload(item); });
 }
 
 // ---------- Media sniffing ----------
