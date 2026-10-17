@@ -8,9 +8,10 @@ const IS_FIREFOX = typeof browser !== 'undefined' && String(browser.runtime.getU
 const IS_SAFARI = !IS_FIREFOX && typeof browser !== 'undefined' && !!browser.runtime.sendNativeMessage && !chrome.downloads?.onDeterminingFilename;
 
 const DEFAULTS = { port: 48213, intercept: true, minSizeMB: 0, sniff: true, autoLaunch: true };
-// Native messaging host bundled with the app (Chrome/Brave/Edge/Firefox); Safari talks to its app extension.
+// Native messaging host bundled with the app (Chrome/Brave/Opera/Edge/Firefox); Safari talks to its app extension.
 const NATIVE_HOST = 'com.mesutcevik.mcdownloadmanager';
-const BROWSER = IS_FIREFOX ? 'firefox' : IS_SAFARI ? 'safari' : (navigator.brave ? 'brave' : (/Edg\//.test(navigator.userAgent) ? 'edge' : 'chrome'));
+const BROWSER = IS_FIREFOX ? 'firefox' : IS_SAFARI ? 'safari'
+  : navigator.brave ? 'brave' : /OPR\//.test(navigator.userAgent) ? 'opera' : /Edg\//.test(navigator.userAgent) ? 'edge' : 'chrome';
 
 const MEDIA_EXT = /\.(mp4|m4v|webm|mkv|mov|avi|flv|mp3|m4a|aac|ogg|opus|wav|flac)(\?|#|$)/i;
 const FRAGMENT = /\.(ts|m4s|m4f|cmfv|cmfa|fmp4|init)(\?|#|$)|[/_.-](seg|segment|chunk|frag|fragment)[-_]?\d+/i;

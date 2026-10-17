@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// Guided, one-browser-at-a-time setup of the browser extensions (Safari, Chrome, Brave, Firefox).
+/// Guided, one-browser-at-a-time setup of the browser extensions (Safari, Chrome, Brave, Opera, Firefox).
 struct ExtensionSetupWizard: View {
     @EnvironmentObject var server: ServerController
     let browsers: [BrowserIntegration.Kind]
@@ -138,7 +138,7 @@ struct ExtensionSetupWizard: View {
         }
     }
 
-    // MARK: Chrome / Brave
+    // MARK: Chrome / Brave / Opera
 
     @ViewBuilder
     private var chromiumStep: some View {
@@ -180,7 +180,7 @@ struct ExtensionSetupWizard: View {
             }
         default:
             stepTitle("\(browser.name) is ready")
-            Text("Pin MC Download Manager to the toolbar (puzzle icon ▸ pin). Its popup should show “Connected”. Downloads of the captured file types are now handed to the app.")
+            Text("Pin MC Download Manager to the toolbar (extensions icon ▸ pin). Its popup should show “Connected”. Downloads of the captured file types are now handed to the app.")
             statusRow(ok: connected, okText: "Extension has connected to the app", pendingText: "Waiting for the extension to connect (it connects right after loading)")
         }
     }

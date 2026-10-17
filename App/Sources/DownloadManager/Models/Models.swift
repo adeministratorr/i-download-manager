@@ -50,7 +50,7 @@ struct DownloadItem: Identifiable, Codable, Equatable {
     var completedAt: Date? = nil
     var finalPath: String? = nil
     var requestedSegments: Int = 0      // 0 = ayarlardaki değer
-    var sourceBrowser: String? = nil    // extension that sent it (chrome, brave, edge, firefox, safari)
+    var sourceBrowser: String? = nil    // extension that sent it (chrome, brave, opera, edge, firefox, safari)
 
     // Kalıcı olmayan alanlar
     var speed: Double = 0

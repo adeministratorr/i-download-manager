@@ -134,7 +134,7 @@ struct BrowserSettings: View {
     var body: some View {
         Form {
             Section("Browser extensions") {
-                Text("The guided setup walks you through each installed browser one at a time: Safari (built in, just enable it), Google Chrome and Brave (loaded from a folder), Firefox (signed add-on, one click).")
+                Text("The guided setup walks you through each installed browser one at a time: Safari (built in, just enable it), Google Chrome, Brave and Opera (loaded from a folder), Firefox (signed add-on, one click).")
                     .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Button { ExtensionWizardWindow.shared.show(server: server) } label: {

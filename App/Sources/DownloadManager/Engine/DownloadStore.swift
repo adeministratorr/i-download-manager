@@ -321,7 +321,7 @@ final class DownloadStore: ObservableObject {
     }
 
     private static let browserBundleIDs = [
-        "chrome": "com.google.Chrome", "brave": "com.brave.Browser", "edge": "com.microsoft.edgemac",
+        "chrome": "com.google.Chrome", "brave": "com.brave.Browser", "opera": "com.operasoftware.Opera", "edge": "com.microsoft.edgemac",
         "firefox": "org.mozilla.firefox", "safari": "com.apple.Safari",
     ]
 
