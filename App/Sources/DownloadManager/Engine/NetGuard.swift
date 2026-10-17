@@ -20,30 +20,42 @@ enum NetGuard {
         return String(cString: buf)
     }
 
+    /// IPv6 literalini bayt seviyesinde denetler: yazımdan bağımsız olarak `::`, `::1`,
+    /// IPv4-mapped/compatible gösterimlerin gömülü IPv4'ü ve fe80::/10 yakalanır.
+    /// `0:0:0:0:0:0:0:1` / `::ffff:7f00:1` gibi kanonik olmayan yazımlar da böylece geçemez.
+    /// Ayrıştırılamayan metin için nil döner (çağıran string kontrollerine devam eder).
+    private static func blockedIPv6Literal(_ s: String) -> Bool? {
+        var bare = s
+        if let pct = bare.firstIndex(of: "%") { bare = String(bare[..<pct]) }   // zone id ("%en0") inet_pton'ı bozar
+        guard bare.contains(":") else { return nil }
+        var addr = in6_addr()
+        guard bare.withCString({ inet_pton(AF_INET6, $0, &addr) }) == 1 else { return nil }
+        let b = withUnsafeBytes(of: addr) { Array($0) }
+        if b.allSatisfy({ $0 == 0 }) { return true }                       // ::
+        if b[0..<15].allSatisfy({ $0 == 0 }), b[15] == 1 { return true }   // ::1
+        // ::ffff:0:0/96 (mapped) ve ::/96 (compatible): gömülü IPv4'ü denetle.
+        if b[0..<10].allSatisfy({ $0 == 0 }), (b[10] == 0xff && b[11] == 0xff) || (b[10] == 0 && b[11] == 0) {
+            return isBlockedDownloadHost("\(b[12]).\(b[13]).\(b[14]).\(b[15])")
+        }
+        if b[0] == 0xfe && (b[1] & 0xc0) == 0x80 { return true }           // fe80::/10 link-local
+        return false
+    }
+
     static func isBlockedDownloadHost(_ host: String?) -> Bool {
         guard var h = host?.lowercased().trimmingCharacters(in: .whitespacesAndNewlines), !h.isEmpty else { return true }
         if h.hasSuffix(".") { h = String(h.dropLast()) }   // "localhost." === "localhost"
         if h == "localhost" { return true }
         // Bulut metadata servisleri (kimlik bilgileri verir).
         if h == "metadata.google.internal" || h == "metadata.goog" { return true }
+        if h == "100.100.100.200" { return true }   // Alibaba Cloud metadata
         // Alternatif sayısal IPv4 gösterimleri noktalı dörtlüye indirip öyle denetle.
         if let dotted = normalizedIPv4(h), dotted != h { return isBlockedDownloadHost(dotted) }
         // IPv6 literalleri: köşeli parantezleri soy.
         var bare = h
         if bare.hasPrefix("[") && bare.hasSuffix("]") { bare = String(bare.dropFirst().dropLast()) }
         if bare.contains(":") {
-            // ::1, :: (unspecified), fe80::/10 (link-local). ULA (fc00::/7) serbest (LAN dengi).
-            if bare == "::1" || bare == "::" { return true }
-            // Gömülü IPv4 (örn. ::ffff:127.0.0.1): son segment noktalı dörtlüyse onu denetle.
-            if let lastColon = bare.lastIndex(of: ":"), lastColon < bare.index(before: bare.endIndex) {
-                let tail = String(bare[bare.index(after: lastColon)...])
-                if tail.contains("."), let dotted = normalizedIPv4(tail) {
-                    return isBlockedDownloadHost(dotted)
-                }
-            }
-            let first = bare.split(separator: ":", omittingEmptySubsequences: false).first.map(String.init) ?? ""
-            if first.lowercased().hasPrefix("fe80") { return true }
-            return false
+            // ULA (fc00::/7) serbest (LAN dengi); yukarıdaki bayt denetimi gerisini kapsar.
+            return blockedIPv6Literal(bare) ?? false
         }
         let parts = bare.split(separator: ".")
         guard parts.count == 4 else { return false }

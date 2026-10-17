@@ -205,7 +205,7 @@ struct BrowserSettings: View {
 
     @ViewBuilder
     private func statusLabel(for b: BrowserIntegration.Kind) -> some View {
-        let connected = server.isExtensionConnected(b.rawValue, within: 3600)
+        let connected = server.isExtensionConnected(b.rawValue)
         if b == .safari {
             if safariEnabled == true {
                 Label("Enabled", systemImage: "checkmark.circle.fill").foregroundStyle(.green)

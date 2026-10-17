@@ -207,7 +207,7 @@ struct ExtensionSetupWizard: View {
                         do { prepared[browser] = try BrowserIntegration.prepareTemporaryFirefoxAddon(); error = nil }
                         catch { self.error = error.localizedDescription }
                         BrowserIntegration.openFirefoxDebugging()
-                    } label: { Label("Prepare Add-on File && Open about:debugging", systemImage: "globe") }
+                    } label: { Label("Prepare Add-on File and Open about:debugging", systemImage: "globe") }
                     if let file = prepared[browser] {
                         Button("Show in Finder") { BrowserIntegration.revealInFinder(file) }
                     }

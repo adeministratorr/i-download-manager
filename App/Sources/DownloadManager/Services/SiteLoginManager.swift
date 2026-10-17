@@ -14,6 +14,9 @@ final class SiteLoginManager: NSObject, ObservableObject, WKNavigationDelegate {
     private var window: NSWindow?
     private var webView: WKWebView?
     private var statusLabel: NSTextField?
+    /// Oturum penceresinde gezilen kayıtlı alan adları (eTLD+1). Dışa aktarım yalnızca
+    /// bu alan adlarının cookie'lerini yazar; ilgisiz/izleyici cookie'ler jar'a girmez.
+    private var visitedDomains: Set<String> = []
 
     static let safariUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
 
@@ -91,10 +94,25 @@ final class SiteLoginManager: NSObject, ObservableObject, WKNavigationDelegate {
         webView?.load(URLRequest(url: URL(string: "https://www.youtube.com/")!))
     }
 
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        if let host = webView.url?.host { visitedDomains.insert(Self.registrableDomain(host)) }
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         if let host = webView.url?.host {
+            visitedDomains.insert(Self.registrableDomain(host))
             statusLabel?.stringValue = String(localized: "Signed-in pages: \(host). Click “Save Cookies” when done.")
         }
+    }
+
+    /// eTLD+1'in kaba hali (son iki etiket). co.uk gibi çok parçalı suffix'lerde tam
+    /// değildir ama kullanımı yalnızca "jar bu alan adına eklensin mi" kararıdır; asıl
+    /// cookie gönderimi yt-dlp'nin kendi domain eşleştirmesiyle yapılır.
+    private static func registrableDomain(_ host: String) -> String {
+        var s = host.lowercased()
+        if s.hasPrefix(".") { s.removeFirst() }
+        let parts = s.split(separator: ".")
+        return parts.count >= 2 ? parts.suffix(2).joined(separator: ".") : s
     }
 
     // MARK: Cookies
@@ -103,9 +121,14 @@ final class SiteLoginManager: NSObject, ObservableObject, WKNavigationDelegate {
         let store = WKWebsiteDataStore.default().httpCookieStore
         store.getAllCookies { [weak self] cookies in
             guard let self else { return }
-            self.write(cookies: cookies)
+            // Yalnızca bu pencerede gezilen alan adlarının cookie'leri dışa aktarılır.
+            // (Hiç sayfa yüklenemediyse eski davranış: tümü — jar zaten boş olur.)
+            let scoped = self.visitedDomains.isEmpty
+                ? cookies
+                : cookies.filter { self.visitedDomains.contains(Self.registrableDomain($0.domain)) }
+            self.write(cookies: scoped)
             self.loadStatus()
-            self.statusLabel?.stringValue = String(localized: "Saved \(cookies.count) cookies. yt-dlp will use them for video downloads.")
+            self.statusLabel?.stringValue = String(localized: "Saved \(scoped.count) cookies. yt-dlp will use them for video downloads.")
         }
     }
 
@@ -142,11 +165,7 @@ final class SiteLoginManager: NSObject, ObservableObject, WKNavigationDelegate {
         }
         let rows = text.split(separator: "\n").filter { !$0.hasPrefix("#") && !$0.isEmpty }
         cookieCount = rows.count
-        let hosts = Set(rows.compactMap { $0.split(separator: "\t").first }.map { h -> String in
-            var s = String(h); if s.hasPrefix(".") { s.removeFirst() }
-            let parts = s.split(separator: ".")
-            return parts.count >= 2 ? parts.suffix(2).joined(separator: ".") : s
-        })
+        let hosts = Set(rows.compactMap { $0.split(separator: "\t").first }.map { Self.registrableDomain(String($0)) })
         domains = hosts.sorted()
         savedAt = (try? FileManager.default.attributesOfItem(atPath: Self.cookieFileURL.path))?[.modificationDate] as? Date
     }

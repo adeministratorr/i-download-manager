@@ -9,7 +9,10 @@ final class ServerController: ObservableObject {
     /// Last time each browser's extension talked to the bridge (keys: safari, chrome, brave, firefox, other).
     @Published var extensionConnections: [String: Date] = [:]
 
-    func isExtensionConnected(_ browser: String, within seconds: TimeInterval = 120) -> Bool {
+    /// Bir tarayıcının "bağlı" sayıldığı tazelik penceresi; Settings ve kurulum sihirbazı ortak kullanır.
+    static let connectionFreshness: TimeInterval = 3600
+
+    func isExtensionConnected(_ browser: String, within seconds: TimeInterval = ServerController.connectionFreshness) -> Bool {
         guard let d = extensionConnections[browser] else { return false }
         return Date().timeIntervalSince(d) < seconds
     }
@@ -48,7 +51,9 @@ final class ServerController: ObservableObject {
     private let settings: AppSettings
     private var cancellable: AnyCancellable?
 
-    static let version = "1.4.0"
+    static var version: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "0"
+    }
 
     init(store: DownloadStore, settings: AppSettings) {
         self.store = store
@@ -244,7 +249,8 @@ final class ServerController: ObservableObject {
                     r.hashAlgorithm = algo
                 }
             }
-            let wantPlaylist = (obj["playlist"] as? Bool) == true || (obj["kind"] as? String) == "playlist"
+            let wantPlaylist = (obj["playlist"] as? Bool) == true || kindStr == "playlist"
+            if kindStr == "playlist" { r.kind = .video }
             if wantPlaylist, r.kind == .video {
                 store.addPlaylist(url: url, referer: r.referer, userAgent: r.userAgent,
                                   cookies: r.cookies, headers: r.extraHeaders)

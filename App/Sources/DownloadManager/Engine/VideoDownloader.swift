@@ -79,19 +79,6 @@ enum VideoDownloader {
 
     static let maxPlaylistItems = 200
 
-    /// Kaba playlist sezgisi (UI'da toggle'ı önermek için). Kesin karar
-    /// `fetchPlaylistEntries` ile verilir (tek video da playlist URL'si olabilir).
-    static func looksLikePlaylist(_ url: URL) -> Bool {
-        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
-        let host = url.host?.lowercased() ?? ""
-        let path = url.path.lowercased()
-        let query = (comps.queryItems ?? []).map { $0.name.lowercased() }
-        if query.contains("list") { return true }
-        if host.contains("youtube.com") && path.contains("/playlist") { return true }
-        if path.contains("/playlist") || path.contains("/sets/") || path.contains("/collection") { return true }
-        return false
-    }
-
     /// `yt-dlp --flat-playlist -J` ile videoları tek tek indirmek için listeler.
     /// Tek video dönerse 1 elemanlı liste verir; liste değilse boş dizi + başlık döner.
     static func fetchPlaylistEntries(executable: String,

@@ -47,6 +47,9 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
         c.timeoutIntervalForResource = 7 * 24 * 3600
         c.httpShouldSetCookies = false
         c.httpCookieAcceptPolicy = .never
+        // Bilinçli tercih: bağlantı yokken istek hemen hata vermesin; sistem ağ gelene kadar
+        // bekletsin (Wi-Fi/hotspot geçişleri). waitForConnectivity yalnızca ilk bağlantıda etkilidir,
+        // kopan oturum yine hata verir ve mevcut yeniden-deneme mantığına düşer.
         c.waitsForConnectivity = true
         c.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         return URLSession(configuration: c, delegate: self, delegateQueue: delegateQueue)
@@ -393,11 +396,16 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
 
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
-        // SSRF koruması: engelli host'a yönlendirmeyi izleme.
-        if let u = request.url, NetGuard.isBlockedDownloadURL(u) {
-            completionHandler(nil)
-            fail(DownloadFailure(message: String(localized: "Blocked redirect target")))
-            return
+        // SSRF koruması: engelli host'a yönlendirmeyi izleme. Literal kontrolü non-canonical
+        // IPv6 yazımlarını artık yakalar; alan adları için DNS çözümü de denetlenir (rebinding).
+        if let u = request.url, u.scheme?.lowercased() != "magnet" {
+            let blocked = NetGuard.isBlockedDownloadURL(u)
+                || (u.host.map { NetGuard.resolvesToBlockedAddress($0) } ?? false)
+            if blocked {
+                completionHandler(nil)
+                fail(DownloadFailure(message: String(localized: "Blocked redirect target")))
+                return
+            }
         }
         // https→http kırılmayı engelle (kimlik bilgisi + içerik düz metne düşmesin).
         if requestURL.scheme?.lowercased() == "https", request.url?.scheme?.lowercased() == "http" {

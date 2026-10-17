@@ -89,8 +89,3 @@ enum FileHash {
         }
     }
 }
-
-struct HashVerificationError: LocalizedError {
-    let message: String
-    var errorDescription: String? { message }
-}

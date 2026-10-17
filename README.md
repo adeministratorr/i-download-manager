@@ -86,7 +86,7 @@ Developer ID signing and notarization:
 CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" NOTARY_PROFILE=notary scripts/build.sh
 ```
 
-The GitHub Actions workflow (`.github/workflows/build.yml`) builds a DMG on every push and attaches it to the release on `v*` tags.
+The GitHub Actions workflow (`.github/workflows/build.yml`) builds an ad-hoc signed DMG on every push and uploads it as a workflow artifact. Release DMGs are built locally with `scripts/build.sh` (Developer ID-signed and notarized).
 
 ### Updating the Homebrew cask
 
@@ -147,7 +147,7 @@ project.yml                          xcodegen project spec
 | `GET /downloads` | status of the last 50 downloads |
 | `POST /action` | `{id, action: "pause"\|"resume"\|"cancel"\|"remove"}` |
 
-Every bridge request (except the CORS preflight) must carry `X-MCDM-Token` whose value is shown in the app under *Settings ▸ Browser ▸ Bridge token* and pasted once into each extension's settings; requests without the token are rejected, even from this Mac. The bridge only answers requests whose `Origin` is a browser-extension origin (`chrome-extension://`, `safari-web-extension://`, `moz-extension://`) and whose `Host` is the loopback address; requests from ordinary web pages (including `Origin: null`) are rejected, and CORS headers are only sent to extension origins. Loopback, link-local (`169.254.x.x`, i.e. cloud metadata) and userinfo URLs are refused as download targets, `Cookie`/`Authorization`/`Range`/`Host` cannot be injected via `headers`, and only `http(s)` URLs are accepted.
+Every bridge request (except the CORS preflight) must carry `X-MCDM-Token` whose value is shown in the app under *Settings ▸ Browser ▸ Bridge token* and pasted once into each extension's settings; requests without the token are rejected, even from this Mac. The bridge only answers requests that either carry a browser-extension `Origin` (`chrome-extension://`, `safari-web-extension://`, `moz-extension://`) or — for GETs where Chrome omits `Origin` — carry no `Origin` plus the `X-MCDM-Extension` header, and whose `Host` is the loopback address; requests from ordinary web pages (including `Origin: null`) are rejected, and CORS headers are only sent to extension origins. Loopback, link-local (`169.254.x.x`) and cloud-metadata (`100.100.100.200`) targets as well as userinfo URLs are refused as download targets, `Cookie`/`Authorization`/`Range`/`Host` cannot be injected via `headers`, and only `http(s)` URLs are accepted.
 
 ## Contributing
 

@@ -5,7 +5,8 @@ const api = typeof browser !== 'undefined' ? browser : chrome;
 const t = (k, subs) => { try { return api.i18n.getMessage(k, subs) || k; } catch { return k; } };
 // Firefox (and its forks) serve extension pages from moz-extension:// URLs; works in content scripts too.
 const IS_FIREFOX = typeof browser !== 'undefined' && String(browser.runtime.getURL('')).startsWith('moz-extension:');
-const IS_SAFARI = !IS_FIREFOX && typeof browser !== 'undefined' && !!browser.runtime.sendNativeMessage && !chrome.downloads?.onDeterminingFilename;
+const IS_SAFARI = !IS_FIREFOX && typeof browser !== 'undefined' && !!browser.runtime.sendNativeMessage
+  && !(typeof chrome !== 'undefined' && chrome.downloads?.onDeterminingFilename);
 
 const DEFAULTS = { port: 48213, intercept: true, minSizeMB: 0, sniff: true, autoLaunch: true, token: '' };
 // Native messaging host bundled with the app (Chrome/Brave/Edge/Firefox); Safari talks to its app extension.
@@ -234,6 +235,12 @@ async function interceptDownload(item) {
   if (!app) return false;
   if (!matchesCaptureTypes(app, item.filename || '', url)) return false;
 
+  // The app must accept the download BEFORE the browser copy is cancelled/erased.
+  // Otherwise a bridge failure (app closed, token reset, port busy) would lose the
+  // download entirely: cancelled in the browser and never handed to the app.
+  const filename = item.filename ? item.filename.split(/[\\/]/).pop() : '';
+  const res = await sendToApp({ url, filename, referer: item.referrer, kind: 'file' });
+  if (!res || !res.ok) return false;
   try { await api.downloads.cancel(item.id); } catch {}
   if (IS_FIREFOX) {
     // A small file can finish before the app has answered; delete the browser's duplicate copy.
@@ -243,8 +250,6 @@ async function interceptDownload(item) {
     } catch {}
   }
   try { await api.downloads.erase({ id: item.id }); } catch {}
-  const filename = item.filename ? item.filename.split(/[\\/]/).pop() : '';
-  sendToApp({ url, filename, referer: item.referrer, kind: 'file' });
   return true;
 }
 

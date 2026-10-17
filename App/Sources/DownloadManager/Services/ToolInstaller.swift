@@ -121,10 +121,12 @@ final class ToolInstaller: ObservableObject {
     }
 
     /// `yt-dlp_macos` dosyasını release ile yayınlanan SHA2-256SUMS'e karşı kontrol eder.
-    /// SUMS dosyası alınamaz/ayrıştırılamazsa nil döner (fail-open: bugünkü davranış);
-    /// hash UYUŞMAZSA hata döner (fail-closed).
+    /// SUMS alınamaz/ayrıştırılamazsa hata döner (fail-closed): doğrulanamayan bir
+    /// çalıştırılabilir dosya kurulmaz. Hash UYUŞMAZSA da hata döner.
     private func verifyYtDlpChecksum(_ file: URL) -> Error? {
-        guard let sumsURL = URL(string: "https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS") else { return nil }
+        guard let sumsURL = URL(string: "https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS") else {
+            return DownloadFailure(message: String(localized: "Could not verify the yt-dlp download (checksum source unavailable). Try again later."))
+        }
         var req = URLRequest(url: sumsURL, timeoutInterval: 30)
         req.setValue(DownloadStore.defaultUserAgent, forHTTPHeaderField: "User-Agent")
         let sem = DispatchSemaphore(value: 0)
@@ -141,7 +143,7 @@ final class ToolInstaller: ObservableObject {
               let line = text.split(separator: "\n").first(where: { $0.contains("yt-dlp_macos") }),
               let expected = line.split(whereSeparator: \.isWhitespace).first.map({ $0.lowercased() }),
               expected.count == 64, HashAlgorithm.isHex(String(expected)) else {
-            return nil   // SUMS yoksa/bozuksa engelleme (uygulama güncellemesi gerekebilir)
+            return DownloadFailure(message: String(localized: "Could not verify the yt-dlp download (SHA2-256SUMS unavailable). Try again later."))
         }
         guard let data = try? Data(contentsOf: file, options: .mappedIfSafe) else {
             return DownloadFailure(message: String(localized: "Could not read the downloaded yt-dlp for verification."))

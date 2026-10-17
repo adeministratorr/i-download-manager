@@ -2702,16 +2702,6 @@
         }
       }
     },
-    "Prepare Add-on File && Open about:debugging": {
-      "localizations": {
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eklenti Dosyasını Hazırla && about:debugging'i Aç"
-          }
-        }
-      }
-    },
     "Prepare Files": {
       "localizations": {
         "tr": {
@@ -4116,6 +4106,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "YouTube artık video akışlarını açmak için yt-dlp'nin JavaScript (deno) çalıştırmasını gerektiriyor. deno olmadan YouTube indirmeleri “The page needs to be reloaded” veya “n challenge solving failed” gibi hatalarla başarısız olabilir.\n\niDownload Manager deno'yu (%@) resmi GitHub sürümlerinden indirip kendi Application Support klasöründe tutabilir."
+          }
+        }
+      }
+    },
+    "Prepare Add-on File and Open about:debugging": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eklenti Dosyasını Hazırla ve about:debugging'i Aç"
+          }
+        }
+      }
+    },
+    "Could not verify the yt-dlp download (SHA2-256SUMS unavailable). Try again later.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "yt-dlp indirmesi doğrulanamadı (SHA2-256SUMS alınamadı). Daha sonra tekrar deneyin."
+          }
+        }
+      }
+    },
+    "Could not verify the yt-dlp download (checksum source unavailable). Try again later.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "yt-dlp indirmesi doğrulanamadı (kontrol toplamı kaynağına ulaşılamadı). Daha sonra tekrar deneyin."
           }
         }
       }

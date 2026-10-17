@@ -99,9 +99,10 @@ enum LoginItem {
         let path = Bundle.main.bundleURL.path
         guard path.hasSuffix(".app"),
               path.hasPrefix("/Applications/") || path.hasPrefix(NSHomeDirectory() + "/Applications/") else { return }
-        settings.loginItemAutoRegistered = true
         if SMAppService.mainApp.status == .notRegistered {
-            try? SMAppService.mainApp.register()
+            // Kayıt başarısız olursa bayrağı işaretleme: sonraki açılışta yeniden denenir.
+            guard (try? SMAppService.mainApp.register()) != nil else { return }
         }
+        settings.loginItemAutoRegistered = true
     }
 }

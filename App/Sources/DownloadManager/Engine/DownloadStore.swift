@@ -42,6 +42,8 @@ final class DownloadStore: ObservableObject {
     private var denoDeclinedThisLaunch = false
     /// Video downloads that are retried without cookies after YouTube rejected the signed-in client.
     private var cookielessVideos: Set<UUID> = []
+    /// Geçici "listeleniyor" öğeleri: asla indirme başlatmaz, kuyruğa girmez, diske yazılmaz.
+    private var probeIDs: Set<UUID> = []
     private var samples: [UUID: (bytes: Int64, time: Date)] = [:]
     private var timer: Timer?
     private var saveWork: DispatchWorkItem?
@@ -93,7 +95,7 @@ final class DownloadStore: ObservableObject {
         destinationDirectory(for: item).appendingPathComponent(item.fileName)
     }
 
-    var activeCount: Int { items.filter { $0.state.isActive }.count }
+    var activeCount: Int { items.filter { $0.state.isActive && !probeIDs.contains($0.id) }.count }
     /// Byte-weighted progress of active downloads with a known size (nil when nothing measurable is running).
     var overallProgress: Double? {
         let measurable = items.filter { $0.state.isActive && $0.totalBytes > 0 }
@@ -124,7 +126,7 @@ final class DownloadStore: ObservableObject {
     // MARK: - Ekleme
 
     @discardableResult
-    func add(_ req: NewDownloadRequest) -> DownloadItem {
+    func add(_ req: NewDownloadRequest, isProbe: Bool = false, showDetail: Bool? = nil) -> DownloadItem {
         // İkinci katman: köprü zaten filtreliyor; doğrudan çağrılarda da
         // kimlik/taşıyıcı başlıklar enjekte edilemesin.
         var headers = NetGuard.sanitizedExtraHeaders(req.extraHeaders)
@@ -162,13 +164,15 @@ final class DownloadStore: ObservableObject {
         }
         try? FileManager.default.createDirectory(at: item.directory, withIntermediateDirectories: true)
         items.insert(item, at: 0)
+        if isProbe { probeIDs.insert(item.id) }
         scheduleSave()
         if settings.autoStart { pumpQueue() }
-        if settings.showDetailOnStart { DetailWindowManager.shared.show(id: item.id, store: self) }
+        if !isProbe, showDetail ?? settings.showDetailOnStart { DetailWindowManager.shared.show(id: item.id, store: self) }
         return item
     }
 
     func addURLs(_ text: String, kind: DownloadKind, segments: Int? = nil, expectedHash: String? = nil, hashAlgorithm: HashAlgorithm? = nil, asPlaylist: Bool = false) {
+        var urls: [URL] = []
         for line in text.split(whereSeparator: \.isNewline) {
             let s = line.trimmingCharacters(in: .whitespaces)
             guard let url = URL(string: s), let scheme = url.scheme?.lowercased() else { continue }
@@ -176,6 +180,11 @@ final class DownloadStore: ObservableObject {
             // Magnet yalnızca torrent türüyle kabul edilir; torrent http(s) .torrent
             // bağlantılarını da kabul eder.
             guard ["http", "https"].contains(scheme) || (isMagnet && kind == .torrent) else { continue }
+            urls.append(url)
+        }
+        // Çoklu yapıştırmada öğe başına detay penceresi açma (pencere fırtınası).
+        let showDetail: Bool? = urls.count > 1 ? false : nil
+        for url in urls {
             if asPlaylist, kind == .video {
                 addPlaylist(url: url, referer: nil, userAgent: nil, cookies: nil)
             } else {
@@ -184,7 +193,7 @@ final class DownloadStore: ObservableObject {
                 r.segments = segments
                 r.expectedHash = expectedHash
                 r.hashAlgorithm = hashAlgorithm
-                add(r)
+                add(r, showDetail: showDetail)
             }
         }
     }
@@ -219,7 +228,7 @@ final class DownloadStore: ObservableObject {
         probeReq.userAgent = userAgent
         probeReq.cookies = cookies
         probeReq.extraHeaders = extra
-        let probe = add(probeReq)
+        let probe = add(probeReq, isProbe: true)
         update(probe.id) {
             $0.state = .downloading
             $0.stage = String(localized: "Reading playlist…")
@@ -282,7 +291,7 @@ final class DownloadStore: ObservableObject {
                         if let t = e.title, !t.isEmpty {
                             r.fileName = String(format: "%02d - %@", e.index, t)
                         }
-                        self.add(r)
+                        self.add(r, showDetail: false)
                     }
                 }
             }
@@ -293,13 +302,14 @@ final class DownloadStore: ObservableObject {
 
     func pumpQueue() {
         var slots = max(0, settings.maxConcurrent - activeCount)
-        for item in items.reversed() where item.state == .queued && slots > 0 {
+        for item in items.reversed() where item.state == .queued && !probeIDs.contains(item.id) && slots > 0 {
             startItem(item.id)
             slots -= 1
         }
     }
 
     private func startItem(_ id: UUID) {
+        guard !probeIDs.contains(id) else { return }
         guard let i = index(of: id) else { return }
         let item = items[i]
         if item.kind == .video { startVideo(item) }
@@ -788,6 +798,14 @@ final class DownloadStore: ObservableObject {
         torrentFetching.remove(id)
         try? FileManager.default.removeItem(at: item.partURL)
         try? FileManager.default.removeItem(at: torrentMetaURL(for: id))
+        if item.kind == .video {
+            // Süreç öldükten sonra yarım kalan yt-dlp dosyalarını temizle; bu arada
+            // kullanıcı yeniden başlatırsa (state değişirse) temizliği iptal et.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                guard let self, let it = self.items.first(where: { $0.id == id }), it.state == .cancelled else { return }
+                self.removeVideoPartials(for: it)
+            }
+        }
         // Not: yarım torrent verisi durur (aynı torrent yeniden eklenirse kaldığı
         // yerden devam eder); hangi dosyaların bize ait olduğu bilinmeden silmek riskli.
         update(id) { $0.state = .cancelled; $0.speed = 0; $0.receivedBytes = 0; $0.segments = [] }
@@ -795,9 +813,24 @@ final class DownloadStore: ObservableObject {
         pumpQueue()
     }
 
+    /// İptal/kaldırma sonrası yt-dlp'nin bıraktığı yarım dosyaları (`<ad>.part*`) siler.
+    /// Duraklatmada çağrılmaz: yt-dlp aynı adla kaldığı yerden devam edebilsin.
+    private func removeVideoPartials(for item: DownloadItem) {
+        var dir = destinationDirectory(for: item)
+        if let pt = item.playlistTitle, !pt.isEmpty {
+            dir = dir.appendingPathComponent(Self.sanitize(pt), isDirectory: true)
+        }
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
+        let prefix = item.fileName + ".part"
+        for n in names where n.hasPrefix(prefix) {
+            try? FileManager.default.removeItem(at: dir.appendingPathComponent(n))
+        }
+    }
+
     func remove(_ id: UUID, deleteFile: Bool = false) {
         guard let i = index(of: id) else { return }
         let item = items[i]
+        probeIDs.remove(id)
         if let dl = downloaders.removeValue(forKey: id) { dl.stop() }
         if let p = videoProcesses.removeValue(forKey: id) { p.terminate() }
         if let p = torrentProcesses.removeValue(forKey: id) { p.terminate() }
@@ -805,6 +838,7 @@ final class DownloadStore: ObservableObject {
         try? FileManager.default.removeItem(at: item.partURL)
         try? FileManager.default.removeItem(at: torrentMetaURL(for: id))
         if let cf = item.cookieFile { try? FileManager.default.removeItem(atPath: cf) }
+        if item.kind == .video { removeVideoPartials(for: item) }
         if deleteFile, let fp = item.finalPath, FileManager.default.fileExists(atPath: fp) {
             // Always move to Trash so the user can recover the file.
             try? FileManager.default.trashItem(at: URL(fileURLWithPath: fp), resultingItemURL: nil)
@@ -997,8 +1031,10 @@ final class DownloadStore: ObservableObject {
     }
 
     private func save() {
-        guard let data = try? JSONEncoder().encode(items) else { return }
+        let persistable = items.filter { !probeIDs.contains($0.id) }
+        guard let data = try? JSONEncoder().encode(persistable) else { return }
         try? data.write(to: storeURL, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: storeURL.path)
     }
 
     private func scheduleSave() {

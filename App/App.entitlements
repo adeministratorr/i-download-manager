@@ -2,6 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Gömülü üçüncü-parti CLI araçları (yt-dlp, statik aria2c) hardened runtime altında
+	     çalışabilmek için bu iki istisnayı gerektirir. Liste bilinçli olarak minimal tutulur;
+	     buraya başka istisna eklemeyin. Uygulama kasıtlı olarak sandbox dışıdır: kullanıcının
+	     seçtiği klasörlere yazar, gömülü araçları çalıştırır ve dosyaları açıcıya iletir.
+	     Kaldırmadan önce temiz bir sistemde araçların çalıştığını doğrulayın. -->
 	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
 	<true/>
 	<key>com.apple.security.cs.disable-library-validation</key>

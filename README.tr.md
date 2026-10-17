@@ -85,7 +85,7 @@ Developer ID ile imzalama ve notarizasyon:
 CODESIGN_IDENTITY="Developer ID Application: Ad Soyad (TEAMID)" NOTARY_PROFILE=notary scripts/build.sh
 ```
 
-GitHub Actions iş akışı (`.github/workflows/build.yml`) her push'ta DMG üretir ve `v*` etiketlerinde Release'e ekler.
+GitHub Actions iş akışı (`.github/workflows/build.yml`) her push'ta ad-hoc imzalı bir DMG üretir ve workflow artifact'i olarak yükler. Release DMG'leri yerelde `scripts/build.sh` ile (Developer ID ile imzalı ve notarized) üretilir.
 
 ### Homebrew cask'ini güncelleme
 
@@ -123,11 +123,11 @@ Anahtar yoksa imzasız eklenti eklenir; Firefox onu yalnızca `about:debugging` 
 | Uç nokta | Açıklama |
 |---|---|
 | `GET /ping` | sürüm, yt-dlp durumu, aktif indirme sayısı |
-| `POST /download` | `{url, filename?, referer?, userAgent?, cookieHeader?, cookies?[], kind: "file"\|"video", segments?}` |
+| `POST /download` | `{url, filename?, referer?, userAgent?, cookieHeader?, cookies?[], kind: "file"\|"video"\|"torrent", segments?, expectedHash?, hashAlgorithm?, playlist?}` |
 | `GET /downloads` | son 50 indirmenin durumu |
 | `POST /action` | `{id, action: "pause"\|"resume"\|"cancel"\|"remove"}` |
 
-Köprü yalnızca `Origin` değeri tarayıcı eklentisi kaynağı olan (`chrome-extension://`, `safari-web-extension://`, `moz-extension://`) ve `Host` değeri yerel adres olan isteklere yanıt verir; sıradan web sayfalarından gelen istekler (`Origin: null` dahil) reddedilir, CORS başlıkları yalnızca eklenti kaynaklarına gönderilir.
+CORS ön kontrolü dışındaki her köprü isteği, uygulamada *Ayarlar ▸ Tarayıcı ▸ Köprü anahtarı* altında gösterilen ve her eklentinin ayarlarına bir kez yapıştırılan `X-MCDM-Token` başlığını taşımalıdır; anahtarsız istekler bu Mac'ten gelse bile reddedilir. Köprü yalnızca `Origin` değeri tarayıcı eklentisi kaynağı olan (`chrome-extension://`, `safari-web-extension://`, `moz-extension://`) ya da — Chrome'un `Origin` göndermediği GET'lerde — `Origin` içermeyip `X-MCDM-Extension` başlığı taşıyan ve `Host` değeri yerel adres olan isteklere yanıt verir; sıradan web sayfalarından gelen istekler (`Origin: null` dahil) reddedilir, CORS başlıkları yalnızca eklenti kaynaklarına gönderilir. Döngü adresi, link-local (`169.254.x.x`) ve bulut metadata (`100.100.100.200`) hedefleri ile kullanıcı bilgisi içeren URL'ler indirme hedefi olarak reddedilir; `Cookie`/`Authorization`/`Range`/`Host` başlıkları `headers` ile enjekte edilemez ve yalnızca `http(s)` URL'leri kabul edilir.
 
 ## Katkı
 

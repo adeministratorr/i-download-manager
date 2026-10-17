@@ -92,17 +92,6 @@ final class ClipboardWatcher {
         return urls
     }
 
-    static func extractURLs(from text: String) -> [URL] {
-        var out: [URL] = []
-        for token in text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }) {
-            let s = token.trimmingCharacters(in: CharacterSet(charactersIn: "<>\"'()[]{},;"))
-            guard let url = URL(string: s), let scheme = url.scheme?.lowercased(),
-                  ["http", "https"].contains(scheme), url.host != nil else { continue }
-            if !out.contains(url) { out.append(url) }
-        }
-        return out
-    }
-
     static func looksLikeVideoPage(_ url: URL) -> Bool {
         let host = url.host?.lowercased() ?? ""
         if FileCategory.detect(fileName: url.lastPathComponent, kind: .file) != .other { return false }

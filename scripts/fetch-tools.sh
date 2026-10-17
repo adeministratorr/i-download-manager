@@ -11,8 +11,13 @@ mkdir -p "$TOOLS"
 cd "$TOOLS"
 
 YTDLP_URL="${YTDLP_URL:-https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos}"
-FFMPEG_ARM64_URL="${FFMPEG_ARM64_URL:-https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip}"
-FFMPEG_X86_URL="${FFMPEG_X86_URL:-https://ffmpeg.martin-riedl.de/redirect/latest/macos/amd64/release/ffmpeg.zip}"
+# ffmpeg: sabit sürüme (9.0.2) pinli URL'ler + SHA-256. "latest" URL'yi takip etmez;
+# sürüm atlarken URL'leri ve hash'leri birlikte güncelleyin (aria2 ile aynı desen).
+FFMPEG_VERSION="9.0.2"
+FFMPEG_ARM64_URL="${FFMPEG_ARM64_URL:-https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffmpeg.zip}"
+FFMPEG_ARM64_SHA="${FFMPEG_ARM64_SHA:-c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924}"
+FFMPEG_X86_URL="${FFMPEG_X86_URL:-https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffmpeg.zip}"
+FFMPEG_X86_SHA="${FFMPEG_X86_SHA:-7c6b4125b191cbf773832dc51f424cf2b6bb7da43007d1e066f95909e47cacd4}"
 # Pinned SHA-256 of the third-party zips (fail closed on mismatch; bump with the URLs).
 ARIA2_VERSION="1.37.0"
 ARIA2_ARM64_URL="${ARIA2_ARM64_URL:-https://github.com/yaobiao131/downkyi-aria2-static-build/releases/download/1.37.0/aria2-aarch64-apple-darwin_static.zip}"
@@ -43,15 +48,17 @@ if [[ ! -x yt-dlp ]]; then
 fi
 
 if [[ ! -x ffmpeg ]]; then
-  echo "→ downloading ffmpeg (arm64)…"
+  echo "→ downloading ffmpeg $FFMPEG_VERSION (arm64)…"
   curl -fL --retry 3 -o ffmpeg-arm64.zip "$FFMPEG_ARM64_URL"
+  [[ "$(shasum -a 256 ffmpeg-arm64.zip | cut -d' ' -f1)" == "$FFMPEG_ARM64_SHA" ]] || { echo "✗ ffmpeg arm64 checksum mismatch" >&2; rm -f ffmpeg-arm64.zip; exit 1; }
   rm -rf _arm64 && mkdir _arm64 && unzip -q -o ffmpeg-arm64.zip -d _arm64
-  echo "→ downloading ffmpeg (x86_64)…"
-  if curl -fL --retry 3 -o ffmpeg-x86.zip "$FFMPEG_X86_URL"; then
+  echo "→ downloading ffmpeg $FFMPEG_VERSION (x86_64)…"
+  if curl -fL --retry 3 -o ffmpeg-x86.zip "$FFMPEG_X86_URL" \
+     && [[ "$(shasum -a 256 ffmpeg-x86.zip | cut -d' ' -f1)" == "$FFMPEG_X86_SHA" ]]; then
     rm -rf _x86 && mkdir _x86 && unzip -q -o ffmpeg-x86.zip -d _x86
     lipo -create "$(find _arm64 -type f -name ffmpeg | head -1)" "$(find _x86 -type f -name ffmpeg | head -1)" -output ffmpeg
   else
-    echo "   x86_64 ffmpeg unavailable, using arm64 only"
+    echo "   x86_64 ffmpeg unavailable or checksum mismatch, using arm64 only"
     cp "$(find _arm64 -type f -name ffmpeg | head -1)" ffmpeg
   fi
   chmod +x ffmpeg
